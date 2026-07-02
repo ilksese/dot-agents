@@ -20,6 +20,8 @@ Always treat these as ignored, regardless of `.gitignore`:
 - `tsconfig.tsbuildinfo`
 - `.superpowers/**`
 - `.playwright*/**`
+- `.vercel/cache/**`
+- `.vercel/node/**`
 
 ## Input
 - `$1`: (optional) branch name to clean. If provided, compares against `origin/$1`; if omitted, uses the current branch's upstream (`@{u}`).
