@@ -22,7 +22,7 @@ All script testing must stay within the project path. Always use `--target test/
 
 ## Files to never commit
 
-No `.gitignore` exists. `dist/`, `node_modules/`, `package-lock.json` are not tracked.
+`dist/`, `node_modules/`, `package-lock.json`, `tsconfig.tsbuildinfo` are gitignored.
 
 ## No linter, no formatter, no test runner
 
