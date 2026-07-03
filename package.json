@@ -1,0 +1,33 @@
+{
+  "name": "@ryucode/dot-agents",
+  "version": "0.1.0",
+  "description": "Sync agents, commands, plugins, and skills to opencode config directory",
+  "author": {
+    "name": "ilkese",
+    "email": "leeyrur@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ilkese/dot-agents.git"
+  },
+  "engines": {
+    "node": ">=22.20.0"
+  },
+  "bin": {
+    "dot-agents": "./dist/scripts/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist/"
+  ],
+  "devDependencies": {
+    "@types/node": "22.20.0",
+    "typescript": "6.0.3"
+  },
+  "dependencies": {
+    "commander": "15.0.0"
+  }
+}
