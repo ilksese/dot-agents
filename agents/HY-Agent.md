@@ -7,11 +7,11 @@ tools:
   bash: true
 permission:
   write:
-    *: allow
+    '*': allow
   edit:
-    *: allow
+    '*': allow
   bash:
-    *: allow
+    '*': allow
   web_conf*: allow
   codegraph*: allow
   context7*: allow
