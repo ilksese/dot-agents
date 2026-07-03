@@ -44,6 +44,36 @@ function copyRecursive(src: string, dest: string, dryRun: boolean): void {
   }
 }
 
+function discoverPlugins(pluginsDir: string): string[] {
+  if (!fs.existsSync(pluginsDir)) return []
+
+  const entries = fs.readdirSync(pluginsDir, { withFileTypes: true })
+  const plugins: string[] = []
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+    if (EXCLUDED_FILES.has(entry.name)) continue
+
+    for (const ext of ['.js', '.ts']) {
+      const indexPath = path.join(pluginsDir, entry.name, `index${ext}`)
+      if (fs.existsSync(indexPath)) {
+        plugins.push(path.resolve(indexPath))
+        break
+      }
+    }
+  }
+
+  return plugins
+}
+
+function resolveConfigPath(configDir: string): string {
+  const jsoncPath = path.join(configDir, 'opencode.jsonc')
+  const jsonPath = path.join(configDir, 'opencode.json')
+  if (fs.existsSync(jsoncPath)) return jsoncPath
+  if (fs.existsSync(jsonPath)) return jsonPath
+  return jsoncPath
+}
+
 const program = new Command();
 
 program
@@ -90,6 +120,82 @@ program
     } else {
       console.log('\nDone.');
     }
+  });
+
+program
+  .command('setup')
+  .description('Inject plugins/*/index.{js,ts} paths into opencode.json[c] plugin array')
+  .option('-g, --global', 'Write to global config (~/.config/opencode/)')
+  .option('-t, --target <path>', 'Custom target directory (for testing)')
+  .option('-d, --dry-run', 'Preview changes without writing')
+  .action((options) => {
+    const dryRun = !!options.dryRun;
+    const isGlobal = !!options.global;
+    const targetDir = options.target
+      ? path.resolve(options.target)
+      : isGlobal
+        ? path.join(process.env.HOME!, '.config', 'opencode')
+        : path.resolve('.opencode');
+
+    const pluginsDir = path.join(projectRoot, 'plugins');
+    const plugins = discoverPlugins(pluginsDir);
+
+    if (plugins.length === 0) {
+      console.log('No plugins found in plugins/*/index.{js,ts}');
+      return;
+    }
+
+    const configPath = resolveConfigPath(targetDir);
+    const existingConfig: Record<string, unknown> = {};
+    let existingPlugin: unknown[] = [];
+
+    if (fs.existsSync(configPath)) {
+      const raw = fs.readFileSync(configPath, 'utf-8');
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        const cleaned = raw.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+        parsed = JSON.parse(cleaned);
+      }
+      Object.assign(existingConfig, parsed);
+      if (Array.isArray(existingConfig.plugin)) {
+        existingPlugin = existingConfig.plugin;
+      }
+    }
+
+    const existingPaths = new Set(
+      existingPlugin.filter((p): p is string => typeof p === 'string'),
+    );
+
+    const newPlugins = plugins.filter(p => !existingPaths.has(p));
+    const mergedPlugin = [...existingPlugin, ...newPlugins];
+
+    const config: Record<string, unknown> = {
+      ...existingConfig,
+      plugin: mergedPlugin,
+    };
+
+    if (!config.$schema) {
+      config.$schema = 'https://opencode.ai/config.json';
+    }
+
+    if (dryRun) {
+      console.log(`Config: ${configPath}`);
+      console.log('Discovered plugins:');
+      for (const p of plugins) {
+        console.log(`  ${existingPaths.has(p) ? '✓ (exists)' : '+ (new)'} ${p}`);
+      }
+      console.log(`\nWould write to: ${configPath}`);
+      console.log('Resulting plugin array:', JSON.stringify(mergedPlugin, null, 2));
+      return;
+    }
+
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+
+    console.log(`Wrote ${configPath}`);
+    console.log(`Added ${newPlugins.length} plugin(s)`);
   });
 
 program.parse(process.argv);
