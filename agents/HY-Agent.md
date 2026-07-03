@@ -68,6 +68,8 @@ permission:
 - `not-found.tsx`
 - `error.tsx`
 - `package.json`
+- `gaia.yml`
+- `sw.js`
 
 示例：从仓库 A pick 一个 commit 到仓库 B，如果该 commit 同时修改了 `.env` 和 `layout.tsx`，只能保留 `layout.tsx` 的改动，`.env` 的改动必须丢弃。
 
