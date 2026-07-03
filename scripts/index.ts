@@ -1,9 +1,20 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 
-const projectRoot = path.resolve(__dirname, '..', '..');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+function findProjectRoot(dir: string): string {
+  if (fs.existsSync(path.join(dir, 'package.json'))) return dir;
+  const parent = path.resolve(dir, '..');
+  if (parent === dir) throw new Error('Could not find project root');
+  return findProjectRoot(parent);
+}
+
+const projectRoot = findProjectRoot(__dirname);
 const pkg = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf-8'));
 
 const EXCLUDED_FILES = new Set(['.DS_Store']);
