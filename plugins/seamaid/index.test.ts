@@ -5,6 +5,7 @@ import {
   normalizeBaseURL,
   parseModels,
   patchSeamaidProvider,
+  applyModelContext,
 } from "./index"
 
 describe("seamaid plugin helpers", () => {
@@ -63,7 +64,7 @@ describe("seamaid plugin helpers", () => {
     })
   })
 
-  test("does not add output token limits to fetched models", () => {
+  test("parseModels does not apply model context", () => {
     expect(
       parseModels({
         data: [{ id: "gpt-4o-mini" }],
@@ -121,7 +122,72 @@ describe("seamaid plugin helpers", () => {
     })
   })
 
-  test("patches provider config with fetched models", () => {
+  describe("applyModelContext", () => {
+  test("adds limit, cost, and modalities for gpt-5.5", () => {
+    const models = applyModelContext({
+      "openai/gpt-5.5": { name: "openai/gpt-5.5", provider: { npm: "@ai-sdk/openai" } },
+    })
+
+    expect(models["openai/gpt-5.5"]).toMatchObject({
+      name: "openai/gpt-5.5",
+      provider: { npm: "@ai-sdk/openai" },
+      limit: { context: 1_000_000, input: 872_000, output: 128_000 },
+      cost: { input: 5, output: 30 },
+      modalities: { input: ["text", "image"], output: ["text"] },
+    })
+  })
+
+  test("adds limit, cost, and modalities for deepseek-v4-pro", () => {
+    const models = applyModelContext({
+      "deepseek/deepseek-v4-pro": { name: "deepseek/deepseek-v4-pro" },
+    })
+
+    expect(models["deepseek/deepseek-v4-pro"]).toMatchObject({
+      name: "deepseek/deepseek-v4-pro",
+      limit: { context: 1_000_000, input: 616_000, output: 384_000 },
+      cost: { input: 0.435, output: 0.87, cache_read: 0.003625 },
+      modalities: { input: ["text"], output: ["text"] },
+    })
+  })
+
+  test("adds limit, cost, and modalities for deepseek-v4-flash", () => {
+    const models = applyModelContext({
+      "deepseek-v4-flash": { name: "deepseek-v4-flash" },
+    })
+
+    expect(models["deepseek-v4-flash"]).toMatchObject({
+      name: "deepseek-v4-flash",
+      limit: { context: 1_000_000, input: 616_000, output: 384_000 },
+      cost: { input: 0.14, output: 0.28, cache_read: 0.0028 },
+      modalities: { input: ["text"], output: ["text"] },
+    })
+  })
+
+  test("does not modify models that do not match any context key", () => {
+    const models = applyModelContext({
+      "unknown-model": { name: "unknown-model" },
+    })
+
+    expect(models["unknown-model"]).toEqual({ name: "unknown-model" })
+  })
+
+  test("matches by substring without prefix", () => {
+    const models = applyModelContext({
+      "gpt-5.5": { name: "gpt-5.5" },
+    })
+
+    expect(models["gpt-5.5"]).toMatchObject({
+      name: "gpt-5.5",
+      limit: { context: 1_000_000 },
+    })
+  })
+
+  test("returns empty object when given empty input", () => {
+    expect(applyModelContext({})).toEqual({})
+  })
+})
+
+test("patches provider config with fetched models", () => {
     const cfg = {}
 
     patchSeamaidProvider(

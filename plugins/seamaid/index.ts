@@ -1,3 +1,5 @@
+import modalContext from "./modal_context.js"
+
 type OpenCodeConfig = {
   provider?: Record<string, ProviderConfig>
 }
@@ -13,6 +15,21 @@ type ModelConfig = {
   name: string
   provider?: {
     npm: string
+  }
+  limit?: {
+    context: number
+    input?: number
+    output: number
+  }
+  cost?: {
+    input: number
+    output: number
+    cache_read?: number
+    cache_write?: number
+  }
+  modalities?: {
+    input: string[]
+    output: string[]
   }
 }
 
@@ -64,6 +81,27 @@ export function parseModels(payload: OpenAIModelsResponse): Record<string, Model
     models[item.id] = {
       name: item.id,
       ...(provider ? { provider } : {}),
+    }
+  }
+
+  return models
+}
+
+export function applyModelContext(
+  models: Record<string, ModelConfig>,
+): Record<string, ModelConfig> {
+  const entries = Object.entries(modalContext).sort((a, b) => b[0].length - a[0].length)
+
+  for (const [key, ctx] of entries) {
+    for (const modelId of Object.keys(models)) {
+      if (!modelId.includes(key)) continue
+
+      models[modelId] = {
+        ...models[modelId],
+        ...(ctx.limit ? { limit: ctx.limit } : {}),
+        ...(ctx.cost ? { cost: ctx.cost } : {}),
+        ...(ctx.modalities ? { modalities: ctx.modalities } : {}),
+      }
     }
   }
 
@@ -128,7 +166,7 @@ export default async function seamaidPlugin() {
   let models: Record<string, ModelConfig> = {}
 
   try {
-    models = await fetchSeamaidModels(process.env, fetch)
+    models = applyModelContext(await fetchSeamaidModels(process.env, fetch))
   } catch (error) {
     console.warn("[seamaid] Failed to fetch models:", error)
   }
