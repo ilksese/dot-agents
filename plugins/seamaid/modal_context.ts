@@ -78,4 +78,52 @@ export default {
       output: ["text"],
     },
   },
+  "qwen3.6-plus": {
+    limit: {
+      context: 1_000_000,
+      input: 991_800,
+      output: 65_536,
+    },
+    cost: {
+      input: 0.5,
+      output: 3.0,
+      cache_read: 0.05,
+    },
+    modalities: {
+      input: ["text", "image", "video"],
+      output: ["text"],
+    },
+  },
+  "qwen3.7-max": {
+    limit: {
+      context: 1_000_000,
+      input: 991_800,
+      output: 65_536,
+    },
+    cost: {
+      input: 2.5,
+      output: 7.5,
+      cache_read: 0.25,
+    },
+    modalities: {
+      input: ["text"],
+      output: ["text"],
+    },
+  },
+  "qwen3.7-plus": {
+    limit: {
+      context: 1_000_000,
+      input: 991_800,
+      output: 65_536,
+    },
+    cost: {
+      input: 0.4,
+      output: 1.6,
+      cache_read: 0.04,
+    },
+    modalities: {
+      input: ["text", "image", "video"],
+      output: ["text"],
+    },
+  },
 } as const
