@@ -14,6 +14,38 @@ export default {
       output: ["text"],
     },
   },
+  "gpt-4.1-mini": {
+    limit: {
+      context: 1_047_576,
+      input: 1_014_808,
+      output: 32_768,
+    },
+    cost: {
+      input: 0.4,
+      output: 1.6,
+      cache_read: 0.1,
+    },
+    modalities: {
+      input: ["text", "image"],
+      output: ["text"],
+    },
+  },
+  "gpt-4o-mini": {
+    limit: {
+      context: 128_000,
+      input: 111_616,
+      output: 16_384,
+    },
+    cost: {
+      input: 0.15,
+      output: 0.6,
+      cache_read: 0.075,
+    },
+    modalities: {
+      input: ["text", "image"],
+      output: ["text"],
+    },
+  },
   "deepseek-v4-pro": {
     limit: {
       context: 1_000_000,
