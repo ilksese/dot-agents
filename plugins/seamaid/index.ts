@@ -1,3 +1,6 @@
+import { homedir } from "os"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
+import { join } from "path"
 import modalContext from "./modal_context.js"
 
 type OpenCodeConfig = {
@@ -45,11 +48,67 @@ type Env = Record<string, string | undefined>
 const PROVIDER_ID = "seamaid"
 const PROVIDER_NAME = "Seamaid"
 const PROVIDER_NPM = "@ai-sdk/openai-compatible"
+
+const CACHE_DIR = join(homedir(), ".opencode", "cache")
+const CACHE_FILE = join(CACHE_DIR, "seamaid-models.json")
+const DEFAULT_CACHE_TTL = 10 * 60 * 60 // 10 hours in seconds
 const MODEL_PROVIDER_NPM_BY_ENDPOINT_TYPE: Record<string, string> = {
   anthropic: "@ai-sdk/anthropic",
   google: "@ai-sdk/google",
   openai: "@ai-sdk/openai",
   deepseek: "@ai-sdk/deepseek",
+}
+
+type CacheEntry = {
+  timestamp: number
+  data: Record<string, ModelConfig>
+}
+
+export function getCacheTTL(env: Env): number {
+  const raw = env.SEAMAID_CACHE_TTL
+  if (raw === undefined || raw === "") {
+    return DEFAULT_CACHE_TTL
+  }
+  const parsed = parseInt(raw, 10)
+  return isNaN(parsed) || parsed < 0 ? DEFAULT_CACHE_TTL : parsed
+}
+
+function cacheDir(env: Env): string {
+  return env.SEAMAID_CACHE_DIR ?? CACHE_DIR
+}
+
+function cacheFile(env: Env): string {
+  return join(cacheDir(env), "seamaid-models.json")
+}
+
+export function readModelsCache(env: Env): Record<string, ModelConfig> | null {
+  const ttl = getCacheTTL(env)
+  if (ttl === 0) return null
+
+  try {
+    const file = cacheFile(env)
+    if (!existsSync(file)) return null
+    const raw = readFileSync(file, "utf-8")
+    const entry: CacheEntry = JSON.parse(raw)
+    const age = (Date.now() - entry.timestamp) / 1000
+    if (age > ttl) return null
+    return entry.data
+  } catch {
+    return null
+  }
+}
+
+export function writeModelsCache(data: Record<string, ModelConfig>, env: Env): void {
+  try {
+    const dir = cacheDir(env)
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true })
+    }
+    const entry: CacheEntry = { timestamp: Date.now(), data }
+    writeFileSync(cacheFile(env), JSON.stringify(entry), "utf-8")
+  } catch {
+    // cache write failure is non-fatal
+  }
 }
 
 export function normalizeBaseURL(baseURL: string): string {
@@ -162,11 +221,23 @@ export function patchSeamaidProvider(
   }
 }
 
+export async function fetchSeamaidModelsCached(
+  env: Env,
+  fetchImpl: typeof fetch,
+): Promise<Record<string, ModelConfig>> {
+  const cached = readModelsCache(env)
+  if (cached !== null) return cached
+
+  const models = await fetchSeamaidModels(env, fetchImpl)
+  writeModelsCache(models, env)
+  return models
+}
+
 export default async function seamaidPlugin() {
   let models: Record<string, ModelConfig> = {}
 
   try {
-    models = applyModelContext(await fetchSeamaidModels(process.env, fetch))
+    models = applyModelContext(await fetchSeamaidModelsCached(process.env, fetch))
   } catch (error) {
     console.warn("[seamaid] Failed to fetch models:", error)
   }

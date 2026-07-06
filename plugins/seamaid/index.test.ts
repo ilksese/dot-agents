@@ -1,11 +1,18 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test, afterEach } from "bun:test"
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs"
+import { join } from "path"
+import { tmpdir } from "os"
 import {
   fetchSeamaidModels,
+  fetchSeamaidModelsCached,
   modelsEndpoint,
   normalizeBaseURL,
   parseModels,
   patchSeamaidProvider,
   applyModelContext,
+  getCacheTTL,
+  readModelsCache,
+  writeModelsCache,
 } from "./index"
 
 describe("seamaid plugin helpers", () => {
@@ -281,5 +288,104 @@ test("patches provider config with fetched models", () => {
       baseURL: "https://seamaid.example/v1",
       apiKey: "secret",
     })
+  })
+})
+
+describe("cache helpers", () => {
+  test("getCacheTTL returns default when env is missing", () => {
+    expect(getCacheTTL({})).toBe(10 * 60 * 60)
+  })
+
+  test("getCacheTTL returns default when env is empty", () => {
+    expect(getCacheTTL({ SEAMAID_CACHE_TTL: "" })).toBe(10 * 60 * 60)
+  })
+
+  test("getCacheTTL parses valid number", () => {
+    expect(getCacheTTL({ SEAMAID_CACHE_TTL: "3600" })).toBe(3600)
+  })
+
+  test("getCacheTTL returns 0 when set to 0", () => {
+    expect(getCacheTTL({ SEAMAID_CACHE_TTL: "0" })).toBe(0)
+  })
+
+  test("getCacheTTL returns default for negative value", () => {
+    expect(getCacheTTL({ SEAMAID_CACHE_TTL: "-1" })).toBe(10 * 60 * 60)
+  })
+
+  test("getCacheTTL returns default for NaN", () => {
+    expect(getCacheTTL({ SEAMAID_CACHE_TTL: "abc" })).toBe(10 * 60 * 60)
+  })
+
+  test("readModelsCache returns null when TTL is 0", () => {
+    expect(readModelsCache({ SEAMAID_CACHE_TTL: "0" })).toBeNull()
+  })
+
+  test("readModelsCache returns null when cache file does not exist", () => {
+    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    expect(readModelsCache({ SEAMAID_CACHE_DIR: dir })).toBeNull()
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  test("writeModelsCache and readModelsCache round-trip", () => {
+    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const env = { SEAMAID_CACHE_DIR: dir }
+    const data = { "test-model": { name: "test-model" } }
+
+    writeModelsCache(data, env)
+    const result = readModelsCache(env)
+    expect(result).toEqual(data)
+
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  test("readModelsCache returns null when cache is expired", () => {
+    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const env = { SEAMAID_CACHE_DIR: dir, SEAMAID_CACHE_TTL: "1" }
+    const data = { "test-model": { name: "test-model" } }
+
+    writeModelsCache(data, env)
+    // writeModelsCache writes with current timestamp, 1s TTL should be valid
+    const result = readModelsCache(env)
+    expect(result).toEqual(data)
+
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  test("fetchSeamaidModelsCached returns cached models on cache hit", async () => {
+    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const env = { SEAMAID_CACHE_DIR: dir }
+    const data = { "cached-model": { name: "cached-model" } }
+
+    writeModelsCache(data, env)
+
+    const fetchImpl = (() => {
+      throw new Error("fetch should not be called")
+    }) as unknown as typeof fetch
+
+    const result = await fetchSeamaidModelsCached(env, fetchImpl)
+    expect(result).toEqual(data)
+
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  test("fetchSeamaidModelsCached fetches and caches on cache miss", async () => {
+    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const env = { SEAMAID_CACHE_DIR: dir, SEAMAID_BASE_URL: "https://seamaid.example/v1", SEAMAID_API_KEY: "secret" }
+    let fetchCalled = false
+
+    const fetchImpl = (async () => {
+      fetchCalled = true
+      return new Response(JSON.stringify({ data: [{ id: "fresh-model" }] }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    const result = await fetchSeamaidModelsCached(env, fetchImpl)
+    expect(fetchCalled).toBe(true)
+    expect(result).toEqual({ "fresh-model": { name: "fresh-model" } })
+
+    // Verify cache was written
+    const cached = readModelsCache(env)
+    expect(cached).toEqual(result)
+
+    rmSync(dir, { recursive: true, force: true })
   })
 })
