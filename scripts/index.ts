@@ -18,29 +18,121 @@ const projectRoot = findProjectRoot(__dirname);
 const pkg = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf-8'));
 
 const EXCLUDED_FILES = new Set(['.DS_Store']);
-const DIRS = ['agents', 'commands', 'plugins', 'skills'] as const;
+const RESOURCE_TYPES = [
+  { option: 'agent', short: 'a', dir: 'agents', shape: 'file' },
+  { option: 'command', short: 'c', dir: 'commands', shape: 'file' },
+  { option: 'plugin', short: 'p', dir: 'plugins', shape: 'directory' },
+  { option: 'skill', short: 's', dir: 'skills', shape: 'directory' },
+] as const;
 
-function copyRecursive(src: string, dest: string, dryRun: boolean): void {
-  const entries = fs.readdirSync(src, { withFileTypes: true });
+type ResourceType = (typeof RESOURCE_TYPES)[number];
+type ResourceOption = ResourceType['option'];
+type SyncSelection = Partial<Record<ResourceOption, string[]>>;
 
-  for (const entry of entries) {
-    if (EXCLUDED_FILES.has(entry.name)) continue;
+function copyEntry(srcPath: string, destPath: string, dryRun: boolean): void {
+  if (dryRun) {
+    const stat = fs.statSync(srcPath);
+    console.log(`  ${stat.isDirectory() ? '📁' : '📄'} ${srcPath}  →  ${destPath}`);
+    return;
+  }
 
-    const srcPath = path.join(src, entry.name);
-    const destPath = path.join(dest, entry.name);
+  fs.mkdirSync(path.dirname(destPath), { recursive: true });
+  const stat = fs.statSync(srcPath);
+  if (stat.isDirectory()) {
+    fs.cpSync(srcPath, destPath, { recursive: true, force: true, filter: src => !EXCLUDED_FILES.has(path.basename(src)) });
+  } else {
+    fs.copyFileSync(srcPath, destPath);
+  }
+}
 
-    if (dryRun) {
-      console.log(`  ${entry.isDirectory() ? '📁' : '📄'} ${srcPath}  →  ${destPath}`);
+function collectOption(value: string, previous: string[]): string[] {
+  previous.push(value);
+  return previous;
+}
+
+function hasExplicitSelection(selection: SyncSelection): boolean {
+  return RESOURCE_TYPES.some(type => (selection[type.option]?.length ?? 0) > 0);
+}
+
+function listResources(type: ResourceType): string[] {
+  const srcDir = path.join(projectRoot, type.dir);
+  if (!fs.existsSync(srcDir)) return [];
+
+  return fs.readdirSync(srcDir, { withFileTypes: true })
+    .filter(entry => !EXCLUDED_FILES.has(entry.name))
+    .filter(entry => type.shape === 'file' ? entry.isFile() : entry.isDirectory())
+    .map(entry => entry.name)
+    .sort();
+}
+
+function findResourceName(type: ResourceType, requested: string): string | undefined {
+  const resources = listResources(type);
+  if (resources.includes(requested)) return requested;
+  if (type.shape === 'file' && !path.extname(requested)) {
+    const withMarkdownExtension = `${requested}.md`;
+    if (resources.includes(withMarkdownExtension)) return withMarkdownExtension;
+  }
+  return undefined;
+}
+
+function selectedNames(type: ResourceType, requested: string[] | undefined): { matched: string[]; missing: string[] } {
+  if (!requested || requested.length === 0 || requested.includes('all')) {
+    return { matched: listResources(type), missing: [] };
+  }
+
+  const matched = new Set<string>();
+  const missing: string[] = [];
+
+  for (const name of requested) {
+    const resourceName = findResourceName(type, name);
+    if (resourceName) {
+      matched.add(resourceName);
+    } else {
+      missing.push(name);
+    }
+  }
+
+  return { matched: [...matched], missing };
+}
+
+function reportMissing(type: ResourceType, missing: string[]): void {
+  if (missing.length === 0) return;
+  console.error(`Not found: ${type.option} ${missing.join(', ')}`);
+}
+
+function syncSelectedResources(baseDir: string, dryRun: boolean, selection: SyncSelection = {}): void {
+  const syncAll = !hasExplicitSelection(selection);
+  console.log(`Target: ${baseDir}${dryRun ? ' (dry-run)' : ''}\n`);
+
+  for (const type of RESOURCE_TYPES) {
+    const requested = syncAll ? undefined : selection[type.option];
+    if (!syncAll && (!requested || requested.length === 0)) continue;
+
+    const srcDir = path.join(projectRoot, type.dir);
+    const destDir = path.join(baseDir, type.dir);
+
+    if (!fs.existsSync(srcDir)) {
+      console.error(`Not found: ${type.option} source directory ${type.dir}/`);
       continue;
     }
 
-    fs.mkdirSync(path.dirname(destPath), { recursive: true });
+    const { matched, missing } = selectedNames(type, requested);
+    reportMissing(type, missing);
 
-    if (entry.isDirectory()) {
-      fs.cpSync(srcPath, destPath, { recursive: true, force: true });
-    } else {
-      fs.copyFileSync(srcPath, destPath);
+    if (matched.length === 0) continue;
+
+    console.log(`  ${type.dir}/`);
+    if (!dryRun) fs.mkdirSync(destDir, { recursive: true });
+
+    for (const name of matched) {
+      copyEntry(path.join(srcDir, name), path.join(destDir, name), dryRun);
     }
+  }
+
+  if (dryRun) {
+    console.log('\nDry run complete.');
+  } else {
+    console.log('\nDone.');
   }
 }
 
@@ -93,33 +185,31 @@ program
 
     const dryRun = !!options.dryRun;
 
-    console.log(`Target: ${baseDir}${dryRun ? ' (dry-run)' : ''}\n`);
+    syncSelectedResources(baseDir, dryRun);
+  });
 
-    for (const dir of DIRS) {
-      const srcDir = path.join(projectRoot, dir);
-      const destDir = path.join(baseDir, dir);
+program
+  .command('sync')
+  .description('Sync all resources or selected agents, commands, plugins, and skills')
+  .option('-t, --target <path>', 'Custom target directory (default: ~/.config/opencode/)')
+  .option('-d, --dry-run', 'Preview changes without copying')
+  .option('-p, --plugin <name>', 'Plugin name to sync; repeatable; use all for every plugin', collectOption, [])
+  .option('-s, --skill <name>', 'Skill name to sync; repeatable; use all for every skill', collectOption, [])
+  .option('-a, --agent <name>', 'Agent name to sync; repeatable; use all for every agent', collectOption, [])
+  .option('-c, --command <name>', 'Command name to sync; repeatable; use all for every command', collectOption, [])
+  .action((options) => {
+    const baseDir = options.target
+      ? path.resolve(options.target)
+      : path.join(process.env.HOME!, '.config', 'opencode');
 
-      if (!fs.existsSync(srcDir)) {
-        console.log(`⚠ Source not found: ${dir}/`);
-        continue;
-      }
+    const selection: SyncSelection = {
+      plugin: options.plugin,
+      skill: options.skill,
+      agent: options.agent,
+      command: options.command,
+    };
 
-      fs.mkdirSync(destDir, { recursive: true });
-      const entryCount = fs.readdirSync(srcDir).filter(f => !EXCLUDED_FILES.has(f)).length;
-      if (entryCount === 0) {
-        console.log(`  ${dir}/  (empty)`);
-        continue;
-      }
-
-      console.log(`  ${dir}/`);
-      copyRecursive(srcDir, destDir, dryRun);
-    }
-
-    if (dryRun) {
-      console.log('\nDry run complete.');
-    } else {
-      console.log('\nDone.');
-    }
+    syncSelectedResources(baseDir, !!options.dryRun, selection);
   });
 
 program
