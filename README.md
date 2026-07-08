@@ -23,6 +23,18 @@ npx @ryucode/dot-agents sync --plugin all --skill all
 # 未匹配的资源会跳过，并输出到 stderr
 npx @ryucode/dot-agents sync -a missing -a HY-Agent
 
+# 以 tree 结构列出全部资源
+npx @ryucode/dot-agents list
+
+# 列出某一类全部资源
+npx @ryucode/dot-agents list --agent
+
+# 使用大小写不敏感的 glob 过滤
+npx @ryucode/dot-agents list --agent "hy*" --skill "*CLEANUP*"
+
+# 使用短选项过滤列表
+npx @ryucode/dot-agents list -a "hy*" -s "*cleanup*"
+
 # 预览变更
 npx @ryucode/dot-agents sync --dry-run
 

@@ -28,6 +28,9 @@ const RESOURCE_TYPES = [
 type ResourceType = (typeof RESOURCE_TYPES)[number];
 type ResourceOption = ResourceType['option'];
 type SyncSelection = Partial<Record<ResourceOption, string[]>>;
+type ListSelection = Partial<Record<ResourceOption, Array<string | true>>>;
+type TreeGroup = { label: string; items: string[] };
+type ListOptionValue = true | Array<string | true>;
 
 function copyEntry(srcPath: string, destPath: string, dryRun: boolean): void {
   if (dryRun) {
@@ -48,6 +51,15 @@ function copyEntry(srcPath: string, destPath: string, dryRun: boolean): void {
 function collectOption(value: string, previous: string[]): string[] {
   previous.push(value);
   return previous;
+}
+
+function collectOptionalOption(value: string | true, previous: Array<string | true>): Array<string | true> {
+  previous.push(value);
+  return previous;
+}
+
+function normalizeListOption(value: ListOptionValue): Array<string | true> {
+  return value === true ? [true] : value;
 }
 
 function hasExplicitSelection(selection: SyncSelection): boolean {
@@ -98,6 +110,78 @@ function selectedNames(type: ResourceType, requested: string[] | undefined): { m
 function reportMissing(type: ResourceType, missing: string[]): void {
   if (missing.length === 0) return;
   console.error(`Not found: ${type.option} ${missing.join(', ')}`);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
+}
+
+function globToRegExp(glob: string): RegExp {
+  const pattern = glob
+    .split('')
+    .map(char => {
+      if (char === '*') return '.*';
+      if (char === '?') return '.';
+      return escapeRegExp(char);
+    })
+    .join('');
+  return new RegExp(`^${pattern}$`, 'i');
+}
+
+function matchesGlob(type: ResourceType, resourceName: string, glob: string): boolean {
+  const regex = globToRegExp(glob);
+  if (regex.test(resourceName)) return true;
+  if (type.shape === 'file' && path.extname(resourceName) === '.md') {
+    return regex.test(resourceName.slice(0, -3));
+  }
+  return false;
+}
+
+function selectedListNames(type: ResourceType, globs: Array<string | true> | undefined): string[] {
+  const resources = listResources(type);
+  if (!globs || globs.length === 0) return resources;
+
+  const patterns = globs.map(glob => glob === true ? '*' : glob);
+  return resources.filter(resource => patterns.some(glob => matchesGlob(type, resource, glob)));
+}
+
+function renderTree(rootLabel: string, groups: TreeGroup[]): string {
+  const lines = [rootLabel];
+
+  if (groups.length === 1 && groups[0]?.label === rootLabel) {
+    for (let index = 0; index < groups[0].items.length; index += 1) {
+      const itemPrefix = index === groups[0].items.length - 1 ? '└──' : '├──';
+      lines.push(`${itemPrefix} ${groups[0].items[index]}`);
+    }
+    return `${lines.join('\n')}\n`;
+  }
+
+  for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
+    const group = groups[groupIndex];
+    const isLastGroup = groupIndex === groups.length - 1;
+    lines.push(`${isLastGroup ? '└──' : '├──'} ${group.label}`);
+
+    const childPrefix = isLastGroup ? '    ' : '│   ';
+    for (let itemIndex = 0; itemIndex < group.items.length; itemIndex += 1) {
+      const isLastItem = itemIndex === group.items.length - 1;
+      lines.push(`${childPrefix}${isLastItem ? '└──' : '├──'} ${group.items[itemIndex]}`);
+    }
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
+function listSelectedResources(selection: ListSelection = {}): void {
+  const listAll = !RESOURCE_TYPES.some(type => (selection[type.option]?.length ?? 0) > 0);
+  const groups = RESOURCE_TYPES
+    .filter(type => listAll || (selection[type.option]?.length ?? 0) > 0)
+    .map(type => ({
+      label: type.dir,
+      items: selectedListNames(type, listAll ? undefined : selection[type.option]),
+    }));
+
+  const rootLabel = groups.length === 1 ? groups[0].label : 'dot-agents';
+  process.stdout.write(renderTree(rootLabel, groups));
 }
 
 function syncSelectedResources(baseDir: string, dryRun: boolean, selection: SyncSelection = {}): void {
@@ -210,6 +294,24 @@ program
     };
 
     syncSelectedResources(baseDir, !!options.dryRun, selection);
+  });
+
+program
+  .command('list')
+  .description('List agents, commands, plugins, and skills as a tree')
+  .option('-p, --plugin [glob]', 'Plugin glob to list; repeatable; omit glob for every plugin', collectOptionalOption, [])
+  .option('-s, --skill [glob]', 'Skill glob to list; repeatable; omit glob for every skill', collectOptionalOption, [])
+  .option('-a, --agent [glob]', 'Agent glob to list; repeatable; omit glob for every agent', collectOptionalOption, [])
+  .option('-c, --command [glob]', 'Command glob to list; repeatable; omit glob for every command', collectOptionalOption, [])
+  .action((options) => {
+    const selection: ListSelection = {
+      plugin: normalizeListOption(options.plugin),
+      skill: normalizeListOption(options.skill),
+      agent: normalizeListOption(options.agent),
+      command: normalizeListOption(options.command),
+    };
+
+    listSelectedResources(selection);
   });
 
 program
