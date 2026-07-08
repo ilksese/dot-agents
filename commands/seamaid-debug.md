@@ -1,6 +1,6 @@
 ---
 description: 海妖项目debug
-agent: HY-Agent
+agent: seamaid-code
 ---
 
 # 海妖项目 Debug

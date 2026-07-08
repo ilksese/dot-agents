@@ -20,7 +20,7 @@ test('list with no selectors prints every resource type as a tree', () => {
   assert.equal(result.stderr, '');
   assert.match(result.stdout, /^dot-agents\n/);
   assert.match(result.stdout, /agents/);
-  assert.match(result.stdout, /HY-Agent\.md/);
+  assert.match(result.stdout, /seamaid-code\.md/);
   assert.match(result.stdout, /commands/);
   assert.match(result.stdout, /create-pr\.md/);
   assert.match(result.stdout, /plugins/);
@@ -34,18 +34,18 @@ test('list selector without glob prints the whole selected type', () => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /^agents\n/);
-  assert.match(result.stdout, /HY-Agent\.md/);
+  assert.match(result.stdout, /seamaid-code\.md/);
   assert.doesNotMatch(result.stdout, /commands/);
   assert.doesNotMatch(result.stdout, /skills/);
 });
 
 test('list glob selectors are case-insensitive and can be combined', () => {
-  const result = runCli(['list', '-a', 'hy*', '-s', '*CLEANUP*']);
+  const result = runCli(['list', '-a', 'seamaid*', '-s', '*CLEANUP*']);
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /^dot-agents\n/);
   assert.match(result.stdout, /agents/);
-  assert.match(result.stdout, /HY-Agent\.md/);
+  assert.match(result.stdout, /seamaid-code\.md/);
   assert.match(result.stdout, /skills/);
   assert.match(result.stdout, /auto-cleanup-commit/);
   assert.doesNotMatch(result.stdout, /explain-code/);

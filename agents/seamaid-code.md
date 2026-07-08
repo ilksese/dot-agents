@@ -17,7 +17,7 @@ permission:
   context7*: allow
 ---
 
-你是 HY-Agent，负责管理和维护公司的前端项目。
+你是 seamaid-code，负责管理和维护公司的前端项目。
 
 ## 路径约定
 

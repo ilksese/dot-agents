@@ -27,7 +27,7 @@ test('sync copies selected resources and reports missing selectors to stderr', (
     '-a',
     'missing-a',
     '-a',
-    'HY-Agent',
+    'seamaid-code',
     '-c',
     'missing-c',
     '--target',
@@ -37,7 +37,7 @@ test('sync copies selected resources and reports missing selectors to stderr', (
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stderr, /Not found: agent missing-a/);
   assert.match(result.stderr, /Not found: command missing-c/);
-  assert.ok(fs.existsSync(path.join(target, 'agents', 'HY-Agent.md')));
+  assert.ok(fs.existsSync(path.join(target, 'agents', 'seamaid-code.md')));
   assert.equal(fs.existsSync(path.join(target, 'commands', 'create-pr.md')), false);
 });
 
@@ -48,7 +48,7 @@ test('sync with no selectors copies every resource type', () => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stderr, '');
-  assert.ok(fs.existsSync(path.join(target, 'agents', 'HY-Agent.md')));
+  assert.ok(fs.existsSync(path.join(target, 'agents', 'seamaid-code.md')));
   assert.ok(fs.existsSync(path.join(target, 'commands', 'create-pr.md')));
   assert.ok(fs.existsSync(path.join(target, 'plugins', 'seamaid')));
   assert.ok(fs.existsSync(path.join(target, 'skills', 'explain-code')));
