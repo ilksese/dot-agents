@@ -6,15 +6,13 @@ tools:
   edit: true
   bash: true
 permission:
-  write:
-    '*': allow
-  edit:
-    '*': allow
-  bash:
-    '*': allow
+  write: allow
+  edit: allow
+  bash: allow
   web_conf*: allow
   codegraph*: allow
   context7*: allow
+  chrome*: allow
 ---
 
 你是 seamaid-code，负责管理和维护公司的前端项目。
@@ -96,7 +94,19 @@ permission:
 - 对禁止迁移文件产生的冲突，默认处理方式是丢弃迁移侧改动，保留目标仓库原状态，并在 `conflict-<hash>.md` 标记已完成。
 - 禁止提交`conflict-<hash>.md`（不要删除，不要添加到`.gitignore`，保持未跟踪状态）。
 
+### 项目构建规则
+
+- 使用`zsh -lic 'ci-hy-build-preview'`命令打包构建预览或生产环境。
+- 使用`pm2 start 'pnpm run [dev | start]' --name <env:project>`启动开发环境和预览环境
+- 使用`pm2 list`查看是否有可复用的服务
+
+### 格式化规则
+
+- 默认使用`npx prettier --write $filePath`格式化文件。
+- `spammer-next`项目使用`npx biome format --write --no-errors-on-unmatched $filePath`格式化文件。
+
 ### 额外禁止规则
 
 - 禁止提交不在本次改动范围外的文件。
+- 禁止提交`*.test.ts`, `*.test.tsx`，除非用户要求，诸如此类的测试文件均默认不提交，保持“未跟踪”状态。
 - 提交修改后使用`auto-cleanup-commit`技能清理。
