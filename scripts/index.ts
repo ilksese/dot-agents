@@ -31,6 +31,7 @@ type SyncSelection = Partial<Record<ResourceOption, string[]>>;
 type ListSelection = Partial<Record<ResourceOption, Array<string | true>>>;
 type TreeGroup = { label: string; items: string[] };
 type ListOptionValue = true | Array<string | true>;
+type PluginConfigSync = { configPath: string; plugins: string[]; newPlugins: string[]; mergedPlugin: unknown[]; existingPaths: Set<string> };
 
 function copyEntry(srcPath: string, destPath: string, dryRun: boolean): void {
   if (dryRun) {
@@ -192,6 +193,11 @@ function syncSelectedResources(baseDir: string, dryRun: boolean, selection: Sync
     const requested = syncAll ? undefined : selection[type.option];
     if (!syncAll && (!requested || requested.length === 0)) continue;
 
+    if (type.option === 'plugin') {
+      syncPluginConfig(baseDir, dryRun, requested);
+      continue;
+    }
+
     const srcDir = path.join(projectRoot, type.dir);
     const destDir = path.join(baseDir, type.dir);
 
@@ -242,12 +248,99 @@ function discoverPlugins(pluginsDir: string): string[] {
   return plugins
 }
 
+function discoverSelectedPlugins(requested: string[] | undefined): { matched: string[]; missing: string[] } {
+  const pluginsDir = path.join(projectRoot, 'plugins');
+  const { matched, missing } = selectedNames(RESOURCE_TYPES[2], requested);
+  const plugins = matched
+    .map(name => {
+      for (const ext of ['.js', '.ts']) {
+        const indexPath = path.join(pluginsDir, name, `index${ext}`);
+        if (fs.existsSync(indexPath)) return path.resolve(indexPath);
+      }
+      return undefined;
+    })
+    .filter((plugin): plugin is string => typeof plugin === 'string');
+
+  const pluginsWithoutIndex = matched.filter(name => !plugins.some(plugin => path.dirname(plugin) === path.resolve(pluginsDir, name)));
+  return { matched: plugins, missing: [...missing, ...pluginsWithoutIndex] };
+}
+
 function resolveConfigPath(configDir: string): string {
   const jsoncPath = path.join(configDir, 'opencode.jsonc')
   const jsonPath = path.join(configDir, 'opencode.json')
   if (fs.existsSync(jsoncPath)) return jsoncPath
   if (fs.existsSync(jsonPath)) return jsonPath
   return jsoncPath
+}
+
+function readConfig(configPath: string): Record<string, unknown> {
+  if (!fs.existsSync(configPath)) return {};
+
+  const raw = fs.readFileSync(configPath, 'utf-8');
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    const cleaned = raw.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    return JSON.parse(cleaned) as Record<string, unknown>;
+  }
+}
+
+function mergePluginConfig(targetDir: string, plugins: string[]): PluginConfigSync {
+  const configPath = resolveConfigPath(targetDir);
+  const existingConfig = readConfig(configPath);
+  const existingPlugin = Array.isArray(existingConfig.plugin) ? existingConfig.plugin : [];
+  const existingPaths = new Set(existingPlugin.filter((plugin): plugin is string => typeof plugin === 'string'));
+  const newPlugins = plugins.filter(plugin => !existingPaths.has(plugin));
+
+  return {
+    configPath,
+    plugins,
+    newPlugins,
+    mergedPlugin: [...existingPlugin, ...newPlugins],
+    existingPaths,
+  };
+}
+
+function writePluginConfig(sync: PluginConfigSync): void {
+  const existingConfig = readConfig(sync.configPath);
+  const config: Record<string, unknown> = {
+    ...existingConfig,
+    plugin: sync.mergedPlugin,
+  };
+
+  if (!config.$schema) {
+    config.$schema = 'https://opencode.ai/config.json';
+  }
+
+  fs.mkdirSync(path.dirname(sync.configPath), { recursive: true });
+  fs.writeFileSync(sync.configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+}
+
+function printPluginConfigSync(sync: PluginConfigSync, dryRun: boolean): void {
+  console.log(`  Config: ${sync.configPath}`);
+  console.log('  Discovered plugins:');
+  for (const plugin of sync.plugins) {
+    console.log(`    ${sync.existingPaths.has(plugin) ? '✓ (exists)' : '+ (new)'} ${plugin}`);
+  }
+
+  if (dryRun) {
+    console.log(`\nWould write to: ${sync.configPath}`);
+    console.log('Resulting plugin array:', JSON.stringify(sync.mergedPlugin, null, 2));
+  }
+}
+
+function syncPluginConfig(baseDir: string, dryRun: boolean, requested: string[] | undefined): void {
+  const { matched, missing } = discoverSelectedPlugins(requested);
+  reportMissing(RESOURCE_TYPES[2], missing);
+
+  if (matched.length === 0) return;
+
+  const sync = mergePluginConfig(baseDir, matched);
+  printPluginConfigSync(sync, dryRun);
+
+  if (!dryRun) {
+    writePluginConfig(sync);
+  }
 }
 
 const program = new Command();
@@ -337,57 +430,17 @@ program
       return;
     }
 
-    const configPath = resolveConfigPath(targetDir);
-    const existingConfig: Record<string, unknown> = {};
-    let existingPlugin: unknown[] = [];
-
-    if (fs.existsSync(configPath)) {
-      const raw = fs.readFileSync(configPath, 'utf-8');
-      let parsed: Record<string, unknown>;
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        const cleaned = raw.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-        parsed = JSON.parse(cleaned);
-      }
-      Object.assign(existingConfig, parsed);
-      if (Array.isArray(existingConfig.plugin)) {
-        existingPlugin = existingConfig.plugin;
-      }
-    }
-
-    const existingPaths = new Set(
-      existingPlugin.filter((p): p is string => typeof p === 'string'),
-    );
-
-    const newPlugins = plugins.filter(p => !existingPaths.has(p));
-    const mergedPlugin = [...existingPlugin, ...newPlugins];
-
-    const config: Record<string, unknown> = {
-      ...existingConfig,
-      plugin: mergedPlugin,
-    };
-
-    if (!config.$schema) {
-      config.$schema = 'https://opencode.ai/config.json';
-    }
+    const sync = mergePluginConfig(targetDir, plugins);
 
     if (dryRun) {
-      console.log(`Config: ${configPath}`);
-      console.log('Discovered plugins:');
-      for (const p of plugins) {
-        console.log(`  ${existingPaths.has(p) ? '✓ (exists)' : '+ (new)'} ${p}`);
-      }
-      console.log(`\nWould write to: ${configPath}`);
-      console.log('Resulting plugin array:', JSON.stringify(mergedPlugin, null, 2));
+      printPluginConfigSync(sync, dryRun);
       return;
     }
 
-    fs.mkdirSync(path.dirname(configPath), { recursive: true });
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    writePluginConfig(sync);
 
-    console.log(`Wrote ${configPath}`);
-    console.log(`Added ${newPlugins.length} plugin(s)`);
+    console.log(`Wrote ${sync.configPath}`);
+    console.log(`Added ${sync.newPlugins.length} plugin(s)`);
   });
 
 program.parse(process.argv);

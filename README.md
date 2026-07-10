@@ -14,6 +14,8 @@ npx @ryucode/dot-agents sync
 # 同步指定资源（选项可重复）
 npx @ryucode/dot-agents sync --plugin seamaid --agent seamaid-code
 
+# 注意：--plugin 会把插件 index.ts/js 路径写入目标 opencode.json[c] 的 plugin 数组，已存在相同路径时跳过
+
 # 使用短选项同步指定资源
 npx @ryucode/dot-agents sync -p seamaid -a seamaid-code -c create-pr
 
