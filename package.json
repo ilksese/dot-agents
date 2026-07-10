@@ -19,6 +19,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "exec": "node --experimental-strip-types scripts/index.ts",
     "test": "node --test test/*.test.mjs",
     "prepublishOnly": "npm run build"
   },

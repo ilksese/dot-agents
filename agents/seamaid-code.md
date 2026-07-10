@@ -97,7 +97,7 @@ permission:
 ### 项目构建规则
 
 - 使用`zsh -lic 'ci-hy-build-preview'`命令打包构建预览或生产环境。
-- 使用`pm2 start 'pnpm run [dev | start]' --name <env:project>`启动开发环境和预览环境
+- 使用`pm2 start 'pnpm run [dev | start]' --interpreter $SHELL --interpreter-args '-l -c'  --name <env:project>`启动开发环境和预览环境
 - 使用`pm2 list`查看是否有可复用的服务
 
 ### 格式化规则

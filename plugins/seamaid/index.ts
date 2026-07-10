@@ -126,7 +126,22 @@ function modelProvider(endpointTypes: unknown, modelID: string): ModelConfig["pr
   if (typeof endpointType !== "string") return undefined
   if (!modelID.includes(endpointType)) return undefined
 
-  const npm = MODEL_PROVIDER_NPM_BY_ENDPOINT_TYPE[endpointType]
+  const npmFromEndpoint = MODEL_PROVIDER_NPM_BY_ENDPOINT_TYPE[endpointType]
+  if (npmFromEndpoint) {
+    return { npm: npmFromEndpoint }
+  }
+
+  const lowerModelID = modelID.toLowerCase();
+  let npm: string | undefined;
+
+  if (lowerModelID.includes('codex') || lowerModelID.includes('gpt')) {
+    npm = '@ai-sdk/openai';
+  } else if (lowerModelID.includes('gemini')) {
+    npm = '@ai-sdk/google';
+  } else if (lowerModelID.includes('claude')) {
+    npm = '@ai-sdk/anthropic';
+  }
+
   return npm ? { npm } : undefined
 }
 
