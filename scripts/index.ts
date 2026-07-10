@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
+import { parse as parseJsonc } from 'jsonc-parser';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -275,14 +276,8 @@ function resolveConfigPath(configDir: string): string {
 
 function readConfig(configPath: string): Record<string, unknown> {
   if (!fs.existsSync(configPath)) return {};
-
   const raw = fs.readFileSync(configPath, 'utf-8');
-  try {
-    return JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    const cleaned = raw.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-    return JSON.parse(cleaned) as Record<string, unknown>;
-  }
+  return parseJsonc(raw) as Record<string, unknown>;
 }
 
 function mergePluginConfig(targetDir: string, plugins: string[]): PluginConfigSync {
