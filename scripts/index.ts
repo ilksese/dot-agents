@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
@@ -353,7 +354,7 @@ program
   .action((options) => {
     const baseDir = options.target
       ? path.resolve(options.target)
-      : path.join(process.env.HOME!, '.config', 'opencode');
+      : path.join(os.homedir(), '.config', 'opencode');
 
     const dryRun = !!options.dryRun;
 
@@ -372,7 +373,7 @@ program
   .action((options) => {
     const baseDir = options.target
       ? path.resolve(options.target)
-      : path.join(process.env.HOME!, '.config', 'opencode');
+      : path.join(os.homedir(), '.config', 'opencode');
 
     const selection: SyncSelection = {
       plugin: options.plugin,
@@ -414,7 +415,7 @@ program
     const targetDir = options.target
       ? path.resolve(options.target)
       : isGlobal
-        ? path.join(process.env.HOME!, '.config', 'opencode')
+        ? path.join(os.homedir(), '.config', 'opencode')
         : path.resolve('.opencode');
 
     const pluginsDir = path.join(projectRoot, 'plugins');
