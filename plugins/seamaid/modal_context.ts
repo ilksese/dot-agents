@@ -13,6 +13,20 @@ export default {
       input: ["text", "image"],
       output: ["text"],
     },
+    variants: {
+      none: {
+        reasoningEffort: "none",
+      },
+      low: {
+        reasoningEffort: "low",
+      },
+      medium: {
+        reasoningEffort: "medium",
+      },
+      high: {
+        reasoningEffort: "high",
+      },
+    },
   },
   "gpt-4.1-mini": {
     limit: {
@@ -29,6 +43,20 @@ export default {
       input: ["text", "image"],
       output: ["text"],
     },
+    variants: {
+      none: {
+        reasoningEffort: "none",
+      },
+      low: {
+        reasoningEffort: "low",
+      },
+      medium: {
+        reasoningEffort: "medium",
+      },
+      high: {
+        reasoningEffort: "high",
+      },
+    },
   },
   "gpt-4o-mini": {
     limit: {
@@ -44,6 +72,20 @@ export default {
     modalities: {
       input: ["text", "image"],
       output: ["text"],
+    },
+    variants: {
+      none: {
+        reasoningEffort: "none",
+      },
+      low: {
+        reasoningEffort: "low",
+      },
+      medium: {
+        reasoningEffort: "medium",
+      },
+      high: {
+        reasoningEffort: "high",
+      },
     },
   },
   "deepseek-v4-pro": {
@@ -67,12 +109,12 @@ export default {
         extra_body: { thinking: { type: "disabled" } },
       },
       high: {
-        reasoning_effort: "high",
+        reasoningEffort: "high",
         thinking: { type: "enabled" },
         extra_body: { thinking: { type: "enabled" } },
       },
       max: {
-        reasoning_effort: "max",
+        reasoningEffort: "max",
         thinking: { type: "enabled" },
         extra_body: { thinking: { type: "enabled" } },
       },
@@ -99,12 +141,12 @@ export default {
         extra_body: { thinking: { type: "disabled" } },
       },
       high: {
-        reasoning_effort: "high",
+        reasoningEffort: "high",
         thinking: { type: "enabled" },
         extra_body: { thinking: { type: "enabled" } },
       },
       max: {
-        reasoning_effort: "max",
+        reasoningEffort: "max",
         thinking: { type: "enabled" },
         extra_body: { thinking: { type: "enabled" } },
       },
