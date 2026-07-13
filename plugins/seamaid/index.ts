@@ -34,6 +34,7 @@ type ModelConfig = {
     input: string[]
     output: string[]
   }
+  variants?: Record<string, Record<string, unknown>>
 }
 
 type OpenAIModelsResponse = {
@@ -175,6 +176,7 @@ export function applyModelContext(
         ...(ctx.limit ? { limit: ctx.limit } : {}),
         ...(ctx.cost ? { cost: ctx.cost } : {}),
         ...(ctx.modalities ? { modalities: ctx.modalities } : {}),
+        ...(ctx.variants ? { variants: ctx.variants } : {}),
       }
     }
   }

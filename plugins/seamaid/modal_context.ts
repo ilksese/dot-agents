@@ -61,6 +61,22 @@ export default {
       input: ["text"],
       output: ["text"],
     },
+    variants: {
+      none: {
+        thinking: { type: "disabled" },
+        extra_body: { thinking: { type: "disabled" } },
+      },
+      high: {
+        reasoning_effort: "high",
+        thinking: { type: "enabled" },
+        extra_body: { thinking: { type: "enabled" } },
+      },
+      max: {
+        reasoning_effort: "max",
+        thinking: { type: "enabled" },
+        extra_body: { thinking: { type: "enabled" } },
+      },
+    },
   },
   "deepseek-v4-flash": {
     limit: {
@@ -76,6 +92,22 @@ export default {
     modalities: {
       input: ["text"],
       output: ["text"],
+    },
+    variants: {
+      none: {
+        thinking: { type: "disabled" },
+        extra_body: { thinking: { type: "disabled" } },
+      },
+      high: {
+        reasoning_effort: "high",
+        thinking: { type: "enabled" },
+        extra_body: { thinking: { type: "enabled" } },
+      },
+      max: {
+        reasoning_effort: "max",
+        thinking: { type: "enabled" },
+        extra_body: { thinking: { type: "enabled" } },
+      },
     },
   },
   "qwen3.6-plus": {
