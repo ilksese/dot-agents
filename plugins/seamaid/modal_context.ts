@@ -126,4 +126,68 @@ export default {
       output: ["text"],
     },
   },
+  "gemini-3.5-flash": {
+    limit: {
+      context: 1_048_576,
+      input: 983_040,
+      output: 65_536,
+    },
+    cost: {
+      input: 1.5,
+      output: 9.0,
+      cache_read: 0.15,
+    },
+    modalities: {
+      input: ["text", "image", "video", "audio", "pdf"],
+      output: ["text"],
+    },
+  },
+  "glm-5.1": {
+    limit: {
+      context: 200_000,
+      input: 68_928,
+      output: 131_072,
+    },
+    cost: {
+      input: 1.4,
+      output: 4.4,
+      cache_read: 0.26,
+    },
+    modalities: {
+      input: ["text", "image", "pdf"],
+      output: ["text"],
+    },
+  },
+  "glm-5.2": {
+    limit: {
+      context: 1_000_000,
+      input: 872_000,
+      output: 128_000,
+    },
+    cost: {
+      input: 1.4,
+      output: 4.4,
+      cache_read: 0.26,
+    },
+    modalities: {
+      input: ["text"],
+      output: ["text"],
+    },
+  },
+  "kimi-k2.7-code": {
+    limit: {
+      context: 262_144,
+      input: 229_376,
+      output: 32_768,
+    },
+    cost: {
+      input: 0.95,
+      output: 4.0,
+      cache_read: 0.19,
+    },
+    modalities: {
+      input: ["text", "image"],
+      output: ["text"],
+    },
+  },
 } as const
