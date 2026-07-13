@@ -34,6 +34,7 @@ lighthouse --version
 ### Chrome Setup
 
 Lighthouse uses Chrome/Chromium. You can:
+
 - Use existing Chrome/Chrome Canary installation
 - Set custom Chrome binary via `CHROME_PATH` environment variable
 - Pass custom flags via `--chrome-flags`
@@ -210,9 +211,9 @@ Create `lighthouse-config.js`:
 
 ```javascript
 module.exports = {
-  extends: 'lighthouse:default',
+  extends: "lighthouse:default",
   settings: {
-    formFactor: 'desktop',
+    formFactor: "desktop",
     throttling: {
       rttMs: 40,
       throughputKbps: 10240,
@@ -225,10 +226,10 @@ module.exports = {
       deviceScaleFactor: 1,
       disabled: false,
     },
-    emulatedUserAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-    onlyCategories: ['performance', 'accessibility', 'best-practices', 'seo'],
+    emulatedUserAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+    onlyCategories: ["performance", "accessibility", "best-practices", "seo"],
   },
-};
+}
 ```
 
 Use it:
@@ -336,13 +337,13 @@ module.exports = {
   ci: {
     assert: {
       assertions: {
-        'categories:performance': ['warn', {minScore: 0.9}],
-        'categories:accessibility': ['error', {minScore: 1}],
-        'first-contentful-paint': ['warn', {maxNumericValue: 2000}],
+        "categories:performance": ["warn", { minScore: 0.9 }],
+        "categories:accessibility": ["error", { minScore: 1 }],
+        "first-contentful-paint": ["warn", { maxNumericValue: 2000 }],
       },
     },
   },
-};
+}
 ```
 
 ## Troubleshooting
@@ -382,14 +383,14 @@ lighthouse https://example.com --disable-full-page-screenshot
 
 ## Key Metrics Reference
 
-| Metric | Target | Description |
-|--------|--------|-------------|
-| Performance Score | 90+ | Overall performance score (0-100) |
-| First Contentful Paint (FCP) | < 1.8s | First text/image painted |
-| Largest Contentful Paint (LCP) | < 2.5s | Largest element painted |
-| Total Blocking Time (TBT) | < 200ms | Main thread blocked time |
-| Cumulative Layout Shift (CLS) | < 0.1 | Visual stability score |
-| Speed Index | < 3.4s | Visual completeness speed |
+| Metric                         | Target  | Description                       |
+| ------------------------------ | ------- | --------------------------------- |
+| Performance Score              | 90+     | Overall performance score (0-100) |
+| First Contentful Paint (FCP)   | < 1.8s  | First text/image painted          |
+| Largest Contentful Paint (LCP) | < 2.5s  | Largest element painted           |
+| Total Blocking Time (TBT)      | < 200ms | Main thread blocked time          |
+| Cumulative Layout Shift (CLS)  | < 0.1   | Visual stability score            |
+| Speed Index                    | < 3.4s  | Visual completeness speed         |
 
 ## Related Tools
 

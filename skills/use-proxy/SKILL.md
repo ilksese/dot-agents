@@ -134,15 +134,15 @@ echo "============================================="
 
 以下情况自动调用本技能：
 
-| 场景 | 示例 |
-|------|------|
-| 用户提到访问 Google、YouTube、Twitter 等 | "帮我搜一下 Google" |
-| 克隆 GitHub 仓库慢/失败 | "clone 这个仓库"、"github 连不上" |
-| 下载 GitHub/HuggingFace/npm 资源 | "下载 stable-diffusion" |
-| 访问 AI API 不稳定 | "openai api 超时" |
-| 用户说需要代理/梯子/科学上网 | |
-| Docker pull 国内缓慢 | "pull docker image" |
-| Python/Node.js 包管理慢 | "pip install tensorflow" |
+| 场景                                     | 示例                              |
+| ---------------------------------------- | --------------------------------- |
+| 用户提到访问 Google、YouTube、Twitter 等 | "帮我搜一下 Google"               |
+| 克隆 GitHub 仓库慢/失败                  | "clone 这个仓库"、"github 连不上" |
+| 下载 GitHub/HuggingFace/npm 资源         | "下载 stable-diffusion"           |
+| 访问 AI API 不稳定                       | "openai api 超时"                 |
+| 用户说需要代理/梯子/科学上网             |                                   |
+| Docker pull 国内缓慢                     | "pull docker image"               |
+| Python/Node.js 包管理慢                  | "pip install tensorflow"          |
 
 ## 注意事项
 

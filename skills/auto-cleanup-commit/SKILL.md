@@ -6,15 +6,19 @@ description: Clean up ignored files (per .gitignore + built-in paths) from unpus
 # Auto Cleanup Commit
 
 ## Goal
+
 Remove files from unpushed commits that should have been ignored (per `.gitignore` or built-in ignore paths), without touching the working tree. If a commit becomes empty after removal, drop it entirely.
 
 ## Constraints (mandatory)
+
 - Never execute `git push` or any of its subcommands
 - Never modify, create, or delete working directory files — index-only operations only (`git rm --cached`). Note: `git rm --cached` will cause the removed files to become untracked in the working tree; this is expected and acceptable.
 - Never use `git filter-branch` (deprecated, unsafe); always use interactive rebase
 
 ## Built-in Ignored Paths
+
 Always treat these as ignored, regardless of `.gitignore`:
+
 - `docs/superpowers/**`
 - `.codegraph/**`
 - `tsconfig.tsbuildinfo`
@@ -36,6 +40,7 @@ fi
 
 git status --porcelain
 ```
+
 If non-empty output, warn and stop — uncommitted changes would interfere with rebase.
 
 ### 2. Determine the base commit ("upstream")
@@ -81,9 +86,11 @@ fi
 
 git log "$LOG_RANGE" --oneline --format="%C(yellow)%h%C(reset) - %s %C(green)(%cd)%C(reset)" --date=short
 ```
+
 If no commits shown, report "no unpushed commits" and exit.
 
 ### 4. Record original commit SHAs for deliverable
+
 ```bash
 if [ "$USE_ROOT" -eq 1 ]; then
   git log --format="%H %s" > /tmp/cleanup-before.txt
@@ -101,6 +108,7 @@ else
   GIT_SEQUENCE_EDITOR="sed -i '' 's/^pick/edit/'" git rebase -i "$UPSTREAM"
 fi
 ```
+
 **Platform note**: `sed -i ''` is macOS/BSD syntax. On Linux, use `sed -i 's/^pick/edit/'` (no empty backup extension).
 
 If the branch contains merge commits, add `--rebase-merges` to the rebase command to preserve merge topology. Merge commits themselves are left untouched (not edited).
@@ -108,13 +116,17 @@ If the branch contains merge commits, add `--rebase-merges` to the rebase comman
 ### 6. For each commit in edit mode, repeat these sub-steps
 
 #### 6a. List files in the current commit
+
 ```bash
 git diff-tree --no-commit-id --name-only -r HEAD
 ```
+
 This works regardless of whether the commit is a root commit or has parents, and it reads directly from the commit tree (not the index).
 
 #### 6b. Identify files to remove
+
 For each file, mark for removal if:
+
 - It matches any built-in ignored path (see above), OR
 - `git check-ignore --no-index -- <file>` exits with code 0
 
@@ -123,12 +135,15 @@ Using `--no-index` ensures the check works on files that are already tracked by 
 **Performance tip**: Batch the check by piping all files through `git check-ignore --stdin --no-index` to avoid spawning a process per file.
 
 #### 6c. Remove matched files from index only
+
 ```bash
 git rm --cached -- <file1> <file2> ...
 ```
+
 The `--` prevents paths starting with `-` from being interpreted as options. `git rm --cached` only removes from the index; the working directory file remains on disk but becomes untracked.
 
 #### 6d. Check if commit is now empty
+
 ```bash
 if git diff --cached --quiet; then
   IS_EMPTY=1
@@ -136,9 +151,11 @@ else
   IS_EMPTY=0
 fi
 ```
+
 If `IS_EMPTY=1`, there are no staged changes (all files were ignored). If `IS_EMPTY=0`, meaningful changes remain.
 
 #### 6e. Rewrite the commit
+
 - **Files removed + remaining changes** (`IS_EMPTY=0`):
   ```bash
   git commit --amend --no-edit
@@ -155,11 +172,13 @@ If `IS_EMPTY=1`, there are no staged changes (all files were ignored). If `IS_EM
   ```
 
 ### 7. Handle special cases during rebase
+
 - **Conflict during rebase**: abort immediately with `git rebase --abort`. Conflicts indicate the commit cannot be cleanly replayed — the user must resolve manually. Never use `--skip` to resolve conflicts (it drops the entire commit, including meaningful changes).
 - **Rebase aborted**: `git rebase --abort` restores the original history and working tree.
 - **Merge commits**: if `--rebase-merges` is in use, merge commits will be preserved but not edited. The `edit` flag only applies to non-merge commits in the todo list.
 
 ### 8. Verify result
+
 ```bash
 echo "=== Rewritten commits ==="
 if [ "$USE_ROOT" -eq 1 ]; then
@@ -192,7 +211,9 @@ echo "=== Done ==="
 ```
 
 ## Deliverable
+
 Report:
+
 - The list of rewritten commits (original SHAs vs new SHAs)
 - How many files were removed across all commits
 - Whether any commits were dropped because they became empty

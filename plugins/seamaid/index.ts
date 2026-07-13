@@ -132,15 +132,15 @@ function modelProvider(endpointTypes: unknown, modelID: string): ModelConfig["pr
     return { npm: npmFromEndpoint }
   }
 
-  const lowerModelID = modelID.toLowerCase();
-  let npm: string | undefined;
+  const lowerModelID = modelID.toLowerCase()
+  let npm: string | undefined
 
-  if (lowerModelID.includes('codex') || lowerModelID.includes('gpt')) {
-    npm = '@ai-sdk/openai';
-  } else if (lowerModelID.includes('gemini')) {
-    npm = '@ai-sdk/google';
-  } else if (lowerModelID.includes('claude')) {
-    npm = '@ai-sdk/anthropic';
+  if (lowerModelID.includes("codex") || lowerModelID.includes("gpt")) {
+    npm = "@ai-sdk/openai"
+  } else if (lowerModelID.includes("gemini")) {
+    npm = "@ai-sdk/google"
+  } else if (lowerModelID.includes("claude")) {
+    npm = "@ai-sdk/anthropic"
   }
 
   return npm ? { npm } : undefined
@@ -162,9 +162,7 @@ export function parseModels(payload: OpenAIModelsResponse): Record<string, Model
   return models
 }
 
-export function applyModelContext(
-  models: Record<string, ModelConfig>,
-): Record<string, ModelConfig> {
+export function applyModelContext(models: Record<string, ModelConfig>): Record<string, ModelConfig> {
   const entries = Object.entries(modalContext).sort((a, b) => b[0].length - a[0].length)
 
   for (const [key, ctx] of entries) {
@@ -184,10 +182,7 @@ export function applyModelContext(
   return models
 }
 
-export async function fetchSeamaidModels(
-  env: Env,
-  fetchImpl: typeof fetch,
-): Promise<Record<string, ModelConfig>> {
+export async function fetchSeamaidModels(env: Env, fetchImpl: typeof fetch): Promise<Record<string, ModelConfig>> {
   const apiKey = env.SEAMAID_API_KEY
   const baseURL = env.SEAMAID_BASE_URL
 
@@ -206,11 +201,7 @@ export async function fetchSeamaidModels(
   return parseModels((await response.json()) as OpenAIModelsResponse)
 }
 
-function resolveOption(
-  existingValue: unknown,
-  envValue: string | undefined,
-  placeholder: string,
-): unknown {
+function resolveOption(existingValue: unknown, envValue: string | undefined, placeholder: string): unknown {
   if (existingValue === undefined || existingValue === placeholder) return envValue ?? placeholder
   return existingValue
 }

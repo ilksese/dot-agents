@@ -66,10 +66,10 @@ as returned by the endpoint.
 
 ### Supported models and official sources
 
-| Registry key | Source |
-|---|---|
-| `gpt-5.5` | [OpenAI docs](https://developers.openai.com/api/docs/models) |
-| `deepseek-v4-pro` | [DeepSeek pricing](https://api-docs.deepseek.com/quick_start/pricing) |
+| Registry key        | Source                                                                |
+| ------------------- | --------------------------------------------------------------------- |
+| `gpt-5.5`           | [OpenAI docs](https://developers.openai.com/api/docs/models)          |
+| `deepseek-v4-pro`   | [DeepSeek pricing](https://api-docs.deepseek.com/quick_start/pricing) |
 | `deepseek-v4-flash` | [DeepSeek pricing](https://api-docs.deepseek.com/quick_start/pricing) |
 
 **Missing values:** If an official source does not publish a value (e.g., cached
@@ -96,12 +96,12 @@ The top-level provider is configured as:
 For each fetched model, the plugin checks `supported_endpoint_types[0]` and the
 model id together. If both match, it sets a model-level provider override:
 
-| Match condition | Model provider npm |
-| --- | --- |
+| Match condition                                          | Model provider npm  |
+| -------------------------------------------------------- | ------------------- |
 | id contains `anthropic` and endpoint type is `anthropic` | `@ai-sdk/anthropic` |
-| id contains `google` and endpoint type is `google` | `@ai-sdk/google` |
-| id contains `openai` and endpoint type is `openai` | `@ai-sdk/openai` |
-| id contains `deepseek` and endpoint type is `deepseek` | `@ai-sdk/deepseek` |
+| id contains `google` and endpoint type is `google`       | `@ai-sdk/google`    |
+| id contains `openai` and endpoint type is `openai`       | `@ai-sdk/openai`    |
+| id contains `deepseek` and endpoint type is `deepseek`   | `@ai-sdk/deepseek`  |
 
 Models that do not satisfy both checks keep using the top-level Seamaid provider.
 

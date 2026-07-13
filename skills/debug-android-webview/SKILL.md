@@ -82,17 +82,17 @@ open "http://chrome-devtools-frontend.appspot.com/serve_rev/@180870/devtools.htm
 
 ## Common CDP Commands
 
-| Purpose | Method | Expression |
-|---------|--------|-----------|
-| Get HTML | `Runtime.evaluate` | `document.documentElement.outerHTML` |
-| Get body | `Runtime.evaluate` | `document.body.innerHTML.substring(0,5000)` |
-| Check readyState | `Runtime.evaluate` | `document.readyState` |
-| Get location | `Runtime.evaluate` | `window.location.href` |
-| Get title | `Runtime.evaluate` | `document.title` |
-| Get UA | `Runtime.evaluate` | `window.navigator.userAgent` |
-| Enable console | `Console.enable` | - |
-| Enable network | `Network.enable` | - |
-| Check version | GET `/json/version` | - |
+| Purpose          | Method              | Expression                                  |
+| ---------------- | ------------------- | ------------------------------------------- |
+| Get HTML         | `Runtime.evaluate`  | `document.documentElement.outerHTML`        |
+| Get body         | `Runtime.evaluate`  | `document.body.innerHTML.substring(0,5000)` |
+| Check readyState | `Runtime.evaluate`  | `document.readyState`                       |
+| Get location     | `Runtime.evaluate`  | `window.location.href`                      |
+| Get title        | `Runtime.evaluate`  | `document.title`                            |
+| Get UA           | `Runtime.evaluate`  | `window.navigator.userAgent`                |
+| Enable console   | `Console.enable`    | -                                           |
+| Enable network   | `Network.enable`    | -                                           |
+| Check version    | GET `/json/version` | -                                           |
 
 ## Troubleshooting
 

@@ -1,7 +1,9 @@
 dist/
 node_modules/
 package-lock.json
-.DS_Store
 tsconfig.tsbuildinfo
 test/.opencode/
-.husky/_/
+docs/superpowers/
+.codegraph/
+.superpowers/
+.DS_Store

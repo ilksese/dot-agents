@@ -20,6 +20,9 @@
   "scripts": {
     "build": "tsc",
     "exec": "node --experimental-strip-types scripts/index.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky",
     "test": "node --test test/*.test.mjs",
     "prepublishOnly": "npm run build"
   },
@@ -28,10 +31,16 @@
   ],
   "devDependencies": {
     "@types/node": "22.20.0",
+    "husky": "9.1.7",
+    "lint-staged": "16.4.0",
+    "prettier": "3.9.5",
     "typescript": "6.0.3"
   },
   "dependencies": {
     "commander": "15.0.0",
     "jsonc-parser": "3.3.1"
+  },
+  "lint-staged": {
+    "*.{js,cjs,mjs,ts,json,jsonc,md,yml,yaml}": "prettier --write"
   }
 }
