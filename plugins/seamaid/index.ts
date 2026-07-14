@@ -130,6 +130,8 @@ function modelProvider(endpointTypes: unknown, modelID: string): ModelConfig["pr
     npm = "@ai-sdk/google"
   } else if (lowerModelID.includes("claude")) {
     npm = "@ai-sdk/anthropic"
+  } else if (lowerModelID.includes("deepseek")) {
+    npm = "@ai-sdk/deepseek"
   }
 
   if (npm !== undefined) {
