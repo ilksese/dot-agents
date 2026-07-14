@@ -121,17 +121,6 @@ export function modelsEndpoint(baseURL: string): string {
 }
 
 function modelProvider(endpointTypes: unknown, modelID: string): ModelConfig["provider"] {
-  if (!Array.isArray(endpointTypes)) return undefined
-
-  const endpointType = endpointTypes[0]
-  if (typeof endpointType !== "string") return undefined
-  if (!modelID.includes(endpointType)) return undefined
-
-  const npmFromEndpoint = MODEL_PROVIDER_NPM_BY_ENDPOINT_TYPE[endpointType]
-  if (npmFromEndpoint) {
-    return { npm: npmFromEndpoint }
-  }
-
   const lowerModelID = modelID.toLowerCase()
   let npm: string | undefined
 
@@ -141,6 +130,21 @@ function modelProvider(endpointTypes: unknown, modelID: string): ModelConfig["pr
     npm = "@ai-sdk/google"
   } else if (lowerModelID.includes("claude")) {
     npm = "@ai-sdk/anthropic"
+  }
+
+  if (npm !== undefined) {
+    return npm
+  }
+
+  if (!Array.isArray(endpointTypes)) return undefined
+
+  const endpointType = endpointTypes[0]
+  if (typeof endpointType !== "string") return undefined
+  if (!modelID.includes(endpointType)) return undefined
+
+  const npmFromEndpoint = MODEL_PROVIDER_NPM_BY_ENDPOINT_TYPE[endpointType]
+  if (npmFromEndpoint) {
+    return { npm: npmFromEndpoint }
   }
 
   return npm ? { npm } : undefined
