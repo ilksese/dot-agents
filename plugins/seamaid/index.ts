@@ -56,6 +56,7 @@ const DEFAULT_CACHE_TTL = 10 * 60 * 60 // 10 hours in seconds
 const MODEL_PROVIDER_NPM_BY_ENDPOINT_TYPE: Record<string, string> = {
   anthropic: "@ai-sdk/anthropic",
   google: "@ai-sdk/google",
+  gemini: "@ai-sdk/google",
   openai: "@ai-sdk/openai",
   deepseek: "@ai-sdk/deepseek",
 }
@@ -168,6 +169,12 @@ export function parseModels(payload: OpenAIModelsResponse): Record<string, Model
   return models
 }
 
+export function markSeamaidModels(models: Record<string, ModelConfig>): Record<string, ModelConfig> {
+  return Object.fromEntries(
+    Object.entries(models).map(([id, model]) => [id, { ...model, name: `${model.name} (SEAMAID)` }]),
+  )
+}
+
 export function applyModelContext(models: Record<string, ModelConfig>): Record<string, ModelConfig> {
   const entries = Object.entries(modalContext).sort((a, b) => b[0].length - a[0].length)
 
@@ -204,7 +211,7 @@ export async function fetchSeamaidModels(env: Env, fetchImpl: typeof fetch): Pro
     throw new Error(`Seamaid models request failed: ${response.status} ${response.statusText}`)
   }
 
-  return parseModels((await response.json()) as OpenAIModelsResponse)
+  return markSeamaidModels(parseModels((await response.json()) as OpenAIModelsResponse))
 }
 
 function resolveOption(existingValue: unknown, envValue: string | undefined, placeholder: string): unknown {

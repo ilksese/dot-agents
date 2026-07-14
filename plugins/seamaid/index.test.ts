@@ -5,6 +5,7 @@ import { tmpdir } from "os"
 import {
   fetchSeamaidModels,
   fetchSeamaidModelsCached,
+  markSeamaidModels,
   modelsEndpoint,
   normalizeBaseURL,
   parseModels,
@@ -30,8 +31,8 @@ describe("seamaid plugin helpers", () => {
         data: [{ id: "gpt-4o" }, { id: "claude-3-5-sonnet" }, { id: "" }, { id: 123 }],
       }),
     ).toEqual({
-      "gpt-4o": { name: "gpt-4o" },
-      "claude-3-5-sonnet": { name: "claude-3-5-sonnet" },
+      "gpt-4o": { name: "gpt-4o", provider: { npm: "@ai-sdk/openai" } },
+      "claude-3-5-sonnet": { name: "claude-3-5-sonnet", provider: { npm: "@ai-sdk/anthropic" } },
     })
   })
 
@@ -67,7 +68,13 @@ describe("seamaid plugin helpers", () => {
         fetchImpl,
       ),
     ).resolves.toEqual({
-      "seamaid-model": { name: "seamaid-model" },
+      "seamaid-model": { name: "seamaid-model (SEAMAID)" },
+    })
+  })
+
+  test("marks fetched model names as seamaid", () => {
+    expect(markSeamaidModels({ "gpt-5.5": { name: "gpt-5.5" } })).toEqual({
+      "gpt-5.5": { name: "gpt-5.5 (SEAMAID)" },
     })
   })
 
@@ -77,7 +84,7 @@ describe("seamaid plugin helpers", () => {
         data: [{ id: "gpt-4o-mini" }],
       }),
     ).toEqual({
-      "gpt-4o-mini": { name: "gpt-4o-mini" },
+      "gpt-4o-mini": { name: "gpt-4o-mini", provider: { npm: "@ai-sdk/openai" } },
     })
   })
 
@@ -111,7 +118,7 @@ describe("seamaid plugin helpers", () => {
     })
   })
 
-  test("keeps top-level provider when endpoint type does not match model id", () => {
+  test("infers provider from model id when endpoint type does not match", () => {
     expect(
       parseModels({
         data: [
@@ -122,10 +129,10 @@ describe("seamaid plugin helpers", () => {
         ],
       }),
     ).toEqual({
-      "gemini-3-pro": { name: "gemini-3-pro" },
-      "google/gemini-3-pro": { name: "google/gemini-3-pro" },
-      "openai/gpt-5.5": { name: "openai/gpt-5.5" },
-      "deepseek-v4": { name: "deepseek-v4" },
+      "gemini-3-pro": { name: "gemini-3-pro", provider: { npm: "@ai-sdk/google" } },
+      "google/gemini-3-pro": { name: "google/gemini-3-pro", provider: { npm: "@ai-sdk/google" } },
+      "openai/gpt-5.5": { name: "openai/gpt-5.5", provider: { npm: "@ai-sdk/openai" } },
+      "deepseek-v4": { name: "deepseek-v4", provider: { npm: "@ai-sdk/deepseek" } },
     })
   })
 
@@ -380,7 +387,7 @@ describe("cache helpers", () => {
 
     const result = await fetchSeamaidModelsCached(env, fetchImpl)
     expect(fetchCalled).toBe(true)
-    expect(result).toEqual({ "fresh-model": { name: "fresh-model" } })
+    expect(result).toEqual({ "fresh-model": { name: "fresh-model (SEAMAID)" } })
 
     // Verify cache was written
     const cached = readModelsCache(env)

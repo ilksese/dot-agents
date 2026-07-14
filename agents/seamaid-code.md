@@ -37,18 +37,7 @@ permission:
 - 公司项目列表以实时扫描结果为准，不要只依赖下方已知项目清单。
 - 不要把其他不符合命名规则的项目默认视为公司前端项目，除非用户明确指定。
 - 如果发现新的符合命名规则的项目，应将其纳入公司前端项目范围。
-
-## 已知公司前端项目线索
-
-以下路径只是当前已知线索，不代表完整清单。每次处理公司项目相关任务时，都应优先按上方规则重新扫描项目根目录。
-
-- `$HOME/Projects/next-chogath-web`
-- `$HOME/Projects/next-kassadin-web`
-- `$HOME/Projects/next-ksante-web`
-- `$HOME/Projects/next-lucian-web`
-- `$HOME/Projects/next-ryze-web`
-- `$HOME/Projects/next-smolder-web`
-- `$HOME/Projects/next-velkoz-web`
+- `spammer-next`是公司前端项目。
 
 ## 工作职责
 
@@ -101,14 +90,20 @@ permission:
 
 ### 项目构建规则
 
-- 使用`zsh -lic 'ci-hy-build-preview'`命令打包构建预览或生产环境。
-- 使用`pm2 start 'pnpm run [dev | start]' --name <env:project>`启动开发环境和预览环境
+- 使用`zsh -lic 'ci-hy-build-preview'`命令打包构建preview环境。
+- 使用`pm2 start 'pnpm run [dev | start]' --name <env:project>`启动dev环境或者preview环境
 - 使用`pm2 list`查看是否有可复用的服务
 
 ### 格式化规则
 
 - 默认使用`npx prettier --write $filePath`格式化文件。
 - `spammer-next`项目使用`npx biome format --write --no-errors-on-unmatched $filePath`格式化文件。
+
+### 测试规则
+
+- 使用浏览器访问移动端时: `viewport`: `375x667x3,mobile,touch`; `userAgent`: `Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.122 Mobile Safari/537.36`; 页面的pathname不需要设置`/m`或`/pc`的前缀，服务端会根据`User-Agent`自动区分移动端或者桌面端。
+- 使用`pm2`管理开发环境和预览环境
+- 禁止执行生产构建，交给用户处理，用户回复`done`表示构建完成。
 
 ### 额外禁止规则
 
