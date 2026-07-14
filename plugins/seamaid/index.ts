@@ -135,7 +135,7 @@ function modelProvider(endpointTypes: unknown, modelID: string): ModelConfig["pr
   }
 
   if (npm !== undefined) {
-    return npm
+    return { npm }
   }
 
   if (!Array.isArray(endpointTypes)) return undefined
