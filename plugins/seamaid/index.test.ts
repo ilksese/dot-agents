@@ -28,11 +28,20 @@ describe("seamaid plugin helpers", () => {
   test("parses OpenAI-compatible model response", () => {
     expect(
       parseModels({
-        data: [{ id: "gpt-4o" }, { id: "claude-3-5-sonnet" }, { id: "" }, { id: 123 }],
+        data: [
+          { id: "gpt-4o", supported_endpoint_types: ["openai"] },
+          { id: "claude-3-5-sonnet", supported_endpoint_types: ["anthropic"] },
+          { id: "", supported_endpoint_types: ["openai"] },
+          { id: 123, supported_endpoint_types: ["openai"] },
+        ],
       }),
     ).toEqual({
-      "gpt-4o": { name: "gpt-4o", provider: { npm: "@ai-sdk/openai" } },
-      "claude-3-5-sonnet": { name: "claude-3-5-sonnet", provider: { npm: "@ai-sdk/anthropic" } },
+      "seamaid-openai": {
+        "gpt-4o": { name: "gpt-4o", provider: { npm: "@ai-sdk/openai" } },
+      },
+      "seamaid-anthropic": {
+        "claude-3-5-sonnet": { name: "claude-3-5-sonnet" },
+      },
     })
   })
 
@@ -53,7 +62,7 @@ describe("seamaid plugin helpers", () => {
 
       return new Response(
         JSON.stringify({
-          data: [{ id: "seamaid-model" }],
+          data: [{ id: "seamaid-model", supported_endpoint_types: ["openai"] }],
         }),
         { status: 200 },
       )
@@ -68,81 +77,71 @@ describe("seamaid plugin helpers", () => {
         fetchImpl,
       ),
     ).resolves.toEqual({
-      "seamaid-model": { name: "seamaid-model (SEAMAID)" },
+      "seamaid-openai": {
+        "seamaid-model": { name: "seamaid-model (SEAMAID)" },
+      },
     })
   })
 
   test("marks fetched model names as seamaid", () => {
-    expect(markSeamaidModels({ "gpt-5.5": { name: "gpt-5.5" } })).toEqual({
-      "gpt-5.5": { name: "gpt-5.5 (SEAMAID)" },
+    expect(markSeamaidModels({ "seamaid-openai": { "gpt-5.5": { name: "gpt-5.5" } } })).toEqual({
+      "seamaid-openai": { "gpt-5.5": { name: "gpt-5.5 (SEAMAID)" } },
     })
   })
 
   test("parseModels does not apply model context", () => {
     expect(
       parseModels({
-        data: [{ id: "gpt-4o-mini" }],
+        data: [{ id: "gpt-4o-mini", supported_endpoint_types: ["openai"] }],
       }),
     ).toEqual({
-      "gpt-4o-mini": { name: "gpt-4o-mini", provider: { npm: "@ai-sdk/openai" } },
+      "seamaid-openai": {
+        "gpt-4o-mini": { name: "gpt-4o-mini", provider: { npm: "@ai-sdk/openai" } },
+      },
     })
   })
 
-  test("sets model provider npm when endpoint type and id both match", () => {
+  test("maps every supported endpoint to its seamaid provider", () => {
     expect(
       parseModels({
         data: [
           { id: "anthropic/claude-sonnet", supported_endpoint_types: ["anthropic"] },
           { id: "google/gemini-3-pro", supported_endpoint_types: ["google"] },
-          { id: "openai/gpt-5.5", supported_endpoint_types: ["openai"] },
-          { id: "deepseek/deepseek-v4", supported_endpoint_types: ["deepseek"] },
+          { id: "multi/gpt-5.5", supported_endpoint_types: ["openai", "google", "anthropic"] },
         ],
       }),
     ).toEqual({
-      "anthropic/claude-sonnet": {
-        name: "anthropic/claude-sonnet",
-        provider: { npm: "@ai-sdk/anthropic" },
+      "seamaid-anthropic": {
+        "anthropic/claude-sonnet": { name: "anthropic/claude-sonnet" },
+        "multi/gpt-5.5": { name: "multi/gpt-5.5" },
       },
-      "google/gemini-3-pro": {
-        name: "google/gemini-3-pro",
-        provider: { npm: "@ai-sdk/google" },
+      "seamaid-google": {
+        "google/gemini-3-pro": { name: "google/gemini-3-pro" },
+        "multi/gpt-5.5": { name: "multi/gpt-5.5" },
       },
-      "openai/gpt-5.5": {
-        name: "openai/gpt-5.5",
-        provider: { npm: "@ai-sdk/openai" },
-      },
-      "deepseek/deepseek-v4": {
-        name: "deepseek/deepseek-v4",
-        provider: { npm: "@ai-sdk/deepseek" },
+      "seamaid-openai": {
+        "multi/gpt-5.5": { name: "multi/gpt-5.5", provider: { npm: "@ai-sdk/openai" } },
       },
     })
   })
 
-  test("infers provider from model id when endpoint type does not match", () => {
+  test("ignores models without supported endpoint types", () => {
     expect(
       parseModels({
-        data: [
-          { id: "gemini-3-pro", supported_endpoint_types: ["google"] },
-          { id: "google/gemini-3-pro", supported_endpoint_types: ["openai"] },
-          { id: "openai/gpt-5.5", supported_endpoint_types: ["unknown"] },
-          { id: "deepseek-v4" },
-        ],
+        data: [{ id: "unknown-model" }, { id: "unsupported", supported_endpoint_types: ["deepseek"] }],
       }),
-    ).toEqual({
-      "gemini-3-pro": { name: "gemini-3-pro", provider: { npm: "@ai-sdk/google" } },
-      "google/gemini-3-pro": { name: "google/gemini-3-pro", provider: { npm: "@ai-sdk/google" } },
-      "openai/gpt-5.5": { name: "openai/gpt-5.5", provider: { npm: "@ai-sdk/openai" } },
-      "deepseek-v4": { name: "deepseek-v4", provider: { npm: "@ai-sdk/deepseek" } },
-    })
+    ).toEqual({})
   })
 
   describe("applyModelContext", () => {
     test("adds limit, cost, and modalities for gpt-5.5", () => {
       const models = applyModelContext({
-        "openai/gpt-5.5": { name: "openai/gpt-5.5", provider: { npm: "@ai-sdk/openai" } },
+        "seamaid-openai": {
+          "openai/gpt-5.5": { name: "openai/gpt-5.5", provider: { npm: "@ai-sdk/openai" } },
+        },
       })
 
-      expect(models["openai/gpt-5.5"]).toMatchObject({
+      expect(models["seamaid-openai"]["openai/gpt-5.5"]).toMatchObject({
         name: "openai/gpt-5.5",
         provider: { npm: "@ai-sdk/openai" },
         limit: { context: 1_000_000, input: 872_000, output: 128_000 },
@@ -153,10 +152,10 @@ describe("seamaid plugin helpers", () => {
 
     test("adds limit, cost, and modalities for deepseek-v4-pro", () => {
       const models = applyModelContext({
-        "deepseek/deepseek-v4-pro": { name: "deepseek/deepseek-v4-pro" },
+        "seamaid-openai": { "deepseek/deepseek-v4-pro": { name: "deepseek/deepseek-v4-pro" } },
       })
 
-      expect(models["deepseek/deepseek-v4-pro"]).toMatchObject({
+      expect(models["seamaid-openai"]["deepseek/deepseek-v4-pro"]).toMatchObject({
         name: "deepseek/deepseek-v4-pro",
         limit: { context: 1_000_000, input: 616_000, output: 384_000 },
         cost: { input: 0.435, output: 0.87, cache_read: 0.003625 },
@@ -166,10 +165,10 @@ describe("seamaid plugin helpers", () => {
 
     test("adds limit, cost, and modalities for deepseek-v4-flash", () => {
       const models = applyModelContext({
-        "deepseek-v4-flash": { name: "deepseek-v4-flash" },
+        "seamaid-openai": { "deepseek-v4-flash": { name: "deepseek-v4-flash" } },
       })
 
-      expect(models["deepseek-v4-flash"]).toMatchObject({
+      expect(models["seamaid-openai"]["deepseek-v4-flash"]).toMatchObject({
         name: "deepseek-v4-flash",
         limit: { context: 1_000_000, input: 616_000, output: 384_000 },
         cost: { input: 0.14, output: 0.28, cache_read: 0.0028 },
@@ -179,18 +178,18 @@ describe("seamaid plugin helpers", () => {
 
     test("does not modify models that do not match any context key", () => {
       const models = applyModelContext({
-        "unknown-model": { name: "unknown-model" },
+        "seamaid-openai": { "unknown-model": { name: "unknown-model" } },
       })
 
-      expect(models["unknown-model"]).toEqual({ name: "unknown-model" })
+      expect(models["seamaid-openai"]["unknown-model"]).toEqual({ name: "unknown-model" })
     })
 
     test("matches by substring without prefix", () => {
       const models = applyModelContext({
-        "gpt-5.5": { name: "gpt-5.5" },
+        "seamaid-openai": { "gpt-5.5": { name: "gpt-5.5" } },
       })
 
-      expect(models["gpt-5.5"]).toMatchObject({
+      expect(models["seamaid-openai"]["gpt-5.5"]).toMatchObject({
         name: "gpt-5.5",
         limit: { context: 1_000_000 },
       })
@@ -207,26 +206,39 @@ describe("seamaid plugin helpers", () => {
     patchSeamaidProvider(
       cfg,
       {
-        "seamaid-model": { name: "seamaid-model" },
+        "seamaid-openai": { "seamaid-model": { name: "seamaid-model" } },
       },
       {
         SEAMAID_API_KEY: "secret",
-        SEAMAID_BASE_URL: "https://seamaid.example/v1",
+        SEAMAID_BASE_URL: "https://seamaid.example",
       },
     )
 
     expect(cfg).toEqual({
       provider: {
-        seamaid: {
+        "seamaid-openai": {
           npm: "@ai-sdk/openai-compatible",
-          name: "Seamaid",
+          name: "Seamaid OpenAI",
           options: {
             baseURL: "https://seamaid.example/v1",
             apiKey: "secret",
+            setCacheKey: true,
           },
           models: {
             "seamaid-model": { name: "seamaid-model" },
           },
+        },
+        "seamaid-google": {
+          npm: "@ai-sdk/google",
+          name: "Seamaid Google",
+          options: { baseURL: "https://seamaid.example/v1beta", apiKey: "secret", setCacheKey: true },
+          models: {},
+        },
+        "seamaid-anthropic": {
+          npm: "@ai-sdk/anthropic",
+          name: "Seamaid Anthropic",
+          options: { baseURL: "https://seamaid.example/v1", apiKey: "secret", setCacheKey: true },
+          models: {},
         },
       },
     })
@@ -235,7 +247,7 @@ describe("seamaid plugin helpers", () => {
   test("preserves existing provider fields and models when fetch returns no models", () => {
     const cfg = {
       provider: {
-        seamaid: {
+        "seamaid-openai": {
           name: "Custom Seamaid",
           options: {
             baseURL: "https://custom.example/v1",
@@ -252,7 +264,7 @@ describe("seamaid plugin helpers", () => {
 
     patchSeamaidProvider(cfg, {}, {})
 
-    expect(cfg.provider.seamaid).toEqual({
+    expect(cfg.provider["seamaid-openai"]).toEqual({
       npm: "@ai-sdk/openai-compatible",
       name: "Custom Seamaid",
       options: {
@@ -261,6 +273,7 @@ describe("seamaid plugin helpers", () => {
           "X-Test": "1",
         },
         apiKey: "{env:SEAMAID_API_KEY}",
+        setCacheKey: true,
       },
       models: {
         existing: { name: "Existing" },
@@ -271,7 +284,7 @@ describe("seamaid plugin helpers", () => {
   test("replaces env placeholders with runtime env values", () => {
     const cfg = {
       provider: {
-        seamaid: {
+        "seamaid-openai": {
           options: {
             baseURL: "{env:SEAMAID_BASE_URL}",
             apiKey: "{env:SEAMAID_API_KEY}",
@@ -283,17 +296,18 @@ describe("seamaid plugin helpers", () => {
     patchSeamaidProvider(
       cfg,
       {
-        live: { name: "live" },
+        "seamaid-openai": { live: { name: "live" } },
       },
       {
         SEAMAID_API_KEY: "secret",
-        SEAMAID_BASE_URL: "https://seamaid.example/v1",
+        SEAMAID_BASE_URL: "https://seamaid.example",
       },
     )
 
-    expect(cfg.provider.seamaid.options).toEqual({
+    expect(cfg.provider["seamaid-openai"].options).toEqual({
       baseURL: "https://seamaid.example/v1",
       apiKey: "secret",
+      setCacheKey: true,
     })
   })
 })
@@ -336,7 +350,7 @@ describe("cache helpers", () => {
   test("writeModelsCache and readModelsCache round-trip", () => {
     const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
     const env = { SEAMAID_CACHE_DIR: dir }
-    const data = { "test-model": { name: "test-model" } }
+    const data = { "seamaid-openai": { "test-model": { name: "test-model" } } }
 
     writeModelsCache(data, env)
     const result = readModelsCache(env)
@@ -348,7 +362,7 @@ describe("cache helpers", () => {
   test("readModelsCache returns null when cache is expired", () => {
     const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
     const env = { SEAMAID_CACHE_DIR: dir, SEAMAID_CACHE_TTL: "1" }
-    const data = { "test-model": { name: "test-model" } }
+    const data = { "seamaid-openai": { "test-model": { name: "test-model" } } }
 
     writeModelsCache(data, env)
     // writeModelsCache writes with current timestamp, 1s TTL should be valid
@@ -361,7 +375,7 @@ describe("cache helpers", () => {
   test("fetchSeamaidModelsCached returns cached models on cache hit", async () => {
     const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
     const env = { SEAMAID_CACHE_DIR: dir }
-    const data = { "cached-model": { name: "cached-model" } }
+    const data = { "seamaid-openai": { "cached-model": { name: "cached-model" } } }
 
     writeModelsCache(data, env)
 
@@ -382,12 +396,14 @@ describe("cache helpers", () => {
 
     const fetchImpl = (async () => {
       fetchCalled = true
-      return new Response(JSON.stringify({ data: [{ id: "fresh-model" }] }), { status: 200 })
+      return new Response(JSON.stringify({ data: [{ id: "fresh-model", supported_endpoint_types: ["openai"] }] }), {
+        status: 200,
+      })
     }) as unknown as typeof fetch
 
     const result = await fetchSeamaidModelsCached(env, fetchImpl)
     expect(fetchCalled).toBe(true)
-    expect(result).toEqual({ "fresh-model": { name: "fresh-model (SEAMAID)" } })
+    expect(result).toEqual({ "seamaid-openai": { "fresh-model": { name: "fresh-model (SEAMAID)" } } })
 
     // Verify cache was written
     const cached = readModelsCache(env)
