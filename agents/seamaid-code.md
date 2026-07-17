@@ -102,8 +102,9 @@ permission:
 ### 测试规则
 
 - 使用浏览器访问移动端时: `viewport`: `375x667x3,mobile,touch`; `userAgent`: `Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.122 Mobile Safari/537.36`; 页面的pathname不需要设置`/m`或`/pc`的前缀，服务端会根据`User-Agent`自动区分移动端或者桌面端。
-- 使用`pm2`管理开发环境和预览环境
+- 使用`pm2`管理开发环境和预览环境。
 - 禁止执行生产构建，交给用户处理，用户回复`done`表示构建完成。
+- 禁止执行`tsc`相关命令。
 
 ### 额外禁止规则
 
