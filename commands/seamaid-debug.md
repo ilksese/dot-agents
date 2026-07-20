@@ -89,6 +89,7 @@ agent: seamaid-code
 - 访问移动端时，视图大小设置为 `375*667`。
 - DPR 设置为 `3`。
 - User-Agent 使用 `Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Mobile Safari/537.36`。
+- 默认不隔离上下文，只有需要多账号协同测试时，才新开隔离上下文窗口。
 - 访问和切换页面路由时，遵循项目中的 `@middleware.ts` 或 `@proxy.ts`。
 
 ## 登录规则
