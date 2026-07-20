@@ -3,6 +3,8 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { spawnSync } from "node:child_process"
+import { createInterface } from "node:readline"
 import { Command } from "commander"
 import { parse as parseJsonc } from "jsonc-parser"
 
@@ -350,6 +352,90 @@ function syncPluginConfig(baseDir: string, dryRun: boolean, requested: string[] 
   }
 }
 
+function isFzfAvailable(): boolean {
+  const result = spawnSync("fzf", ["--version"], { encoding: "utf-8", stdio: "pipe" })
+  return result.status === 0
+}
+
+function pickFromList(list: string[], prompt: string): Promise<string> {
+  if (isFzfAvailable()) {
+    const input = list.join("\n")
+    const fzf = spawnSync("fzf", ["--prompt", prompt], {
+      input,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "inherit"],
+    })
+    const selected = fzf.stdout?.trim()
+    if (!selected) {
+      console.error("Error: no selection")
+      process.exit(1)
+    }
+    return Promise.resolve(selected)
+  }
+
+  console.log(`Available ${prompt}`)
+  for (let i = 0; i < list.length; i++) {
+    console.log(`  ${String(i + 1).padStart(3)}) ${list[i]}`)
+  }
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout })
+
+  return new Promise((resolve) => {
+    rl.question(`Select [1-${list.length}]: `, (answer) => {
+      rl.close()
+      const index = Number.parseInt(answer, 10) - 1
+      if (Number.isNaN(index) || index < 0 || index >= list.length) {
+        console.error("Error: invalid selection")
+        process.exit(1)
+      }
+      resolve(list[index])
+    })
+  })
+}
+
+function listModels(): string[] {
+  const result = spawnSync("opencode", ["models"], { encoding: "utf-8" })
+  if (!result.stdout) {
+    console.error("Error: opencode not found or no models available")
+    process.exit(1)
+  }
+
+  const models = result.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+
+  if (models.length === 0) {
+    console.error("Error: no models available")
+    process.exit(1)
+  }
+
+  return models
+}
+
+function listAgents(): string[] {
+  const result = spawnSync("opencode", ["agent", "list"], { encoding: "utf-8" })
+  if (!result.stdout) {
+    console.error("Error: no agents available")
+    process.exit(1)
+  }
+
+  const agents = result.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /^\S+\s+\(\w+\)/.test(line))
+    .filter((line) => !line.includes("(subagent)"))
+    .map((line) => line.replace(/\s+\(\w+\)$/, ""))
+    .filter((name) => !["compaction", "summary", "title"].includes(name))
+
+  if (agents.length === 0) {
+    console.error("Error: no agents available")
+    process.exit(1)
+  }
+
+  return agents
+}
+
 const program = new Command()
 
 program
@@ -454,6 +540,41 @@ program
 
     console.log(`Wrote ${sync.configPath}`)
     console.log(`Added ${sync.newPlugins.length} plugin(s)`)
+  })
+
+program
+  .command("oc")
+  .description("Launch opencode, optionally pick a model or agent first")
+  .option("--select [type]", "Select model, agent, or both (model|agent|both)")
+  .allowUnknownOption()
+  .action(async (options, cmd) => {
+    const passthrough = cmd.args
+    let selectType = options.select
+
+    if (selectType === true || selectType === undefined) {
+      if (options.select !== undefined && selectType === true) {
+        const choice = await pickFromList(["model", "agent", "both"], "Select what to override:")
+        selectType = choice
+      }
+    }
+
+    let model: string | undefined
+    let agent: string | undefined
+
+    if (selectType === "model" || selectType === "both") {
+      model = await pickFromList(listModels(), "models:")
+    }
+    if (selectType === "agent" || selectType === "both") {
+      agent = await pickFromList(listAgents(), "agents:")
+    }
+
+    const args: string[] = []
+    if (model) args.push("--model", model)
+    if (agent) args.push("--agent", agent)
+    args.push(...passthrough)
+
+    const result = spawnSync("opencode", args, { stdio: "inherit" })
+    process.exit(result.status ?? 1)
   })
 
 program.parse(process.argv)
