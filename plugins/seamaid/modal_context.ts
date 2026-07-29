@@ -1,99 +1,179 @@
+type OpenCodeModality = "text" | "audio" | "image" | "video" | "pdf"
+type OpenCodeStatus = "alpha" | "beta" | "deprecated" | "active"
+type OpenCodeInterleaved = true | { field: "reasoning" | "reasoning_content" | "reasoning_details" }
+
+type OpenCodeCost = {
+  input: number
+  output: number
+  cache_read?: number
+  cache_write?: number
+  context_over_200k?: {
+    input: number
+    output: number
+    cache_read?: number
+    cache_write?: number
+  }
+}
+
+type OpenCodeLimit = {
+  context: number
+  input?: number
+  output: number
+}
+
+type OpenCodeModalities = {
+  input?: readonly OpenCodeModality[]
+  output?: readonly OpenCodeModality[]
+}
+
+type OpenCodeModelProvider = {
+  npm?: string
+  api?: string
+}
+
+type OpenCodeModelVariantConfig = {
+  disabled?: boolean
+  [key: string]: unknown
+}
+
+type OpenCodeModelConfig = {
+  id?: string
+  name?: string
+  family?: string
+  release_date?: string
+  attachment?: boolean
+  reasoning?: boolean
+  temperature?: boolean
+  tool_call?: boolean
+  interleaved?: OpenCodeInterleaved
+  cost?: OpenCodeCost
+  limit?: OpenCodeLimit
+  modalities?: OpenCodeModalities
+  experimental?: boolean
+  status?: OpenCodeStatus
+  provider?: OpenCodeModelProvider
+  options?: object
+  headers?: Record<string, string>
+  variants?: Record<string, OpenCodeModelVariantConfig>
+}
+
+type OpenCodeReasoningEffortVariant = OpenCodeModelVariantConfig & {
+  reasoningEffort: "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
+}
+
+const GPT_REASONING_VARIANTS = {
+  high: {
+    high: { reasoningEffort: "high" },
+  },
+  minimalLowMediumHigh: {
+    minimal: { reasoningEffort: "minimal" },
+    low: { reasoningEffort: "low" },
+    medium: { reasoningEffort: "medium" },
+    high: { reasoningEffort: "high" },
+  },
+  noneLowMediumHigh: {
+    none: { reasoningEffort: "none" },
+    low: { reasoningEffort: "low" },
+    medium: { reasoningEffort: "medium" },
+    high: { reasoningEffort: "high" },
+  },
+  noneLowMediumHighXhigh: {
+    none: { reasoningEffort: "none" },
+    low: { reasoningEffort: "low" },
+    medium: { reasoningEffort: "medium" },
+    high: { reasoningEffort: "high" },
+    xhigh: { reasoningEffort: "xhigh" },
+  },
+  lowMediumHighXhigh: {
+    low: { reasoningEffort: "low" },
+    medium: { reasoningEffort: "medium" },
+    high: { reasoningEffort: "high" },
+    xhigh: { reasoningEffort: "xhigh" },
+  },
+  mediumHighXhigh: {
+    medium: { reasoningEffort: "medium" },
+    high: { reasoningEffort: "high" },
+    xhigh: { reasoningEffort: "xhigh" },
+  },
+  noneLowMediumHighXhighMax: {
+    none: { reasoningEffort: "none" },
+    low: { reasoningEffort: "low" },
+    medium: { reasoningEffort: "medium" },
+    high: { reasoningEffort: "high" },
+    xhigh: { reasoningEffort: "xhigh" },
+    max: { reasoningEffort: "max" },
+  },
+} as const satisfies Record<string, Record<string, OpenCodeReasoningEffortVariant>>
+
+const DEEPSEEK_V4_LIMIT = {
+  context: 1_000_000,
+  input: 616_000,
+  output: 384_000,
+} as const satisfies OpenCodeLimit
+
+const DEEPSEEK_V4_VARIANTS = {
+  none: {
+    thinking: { type: "disabled" },
+    extra_body: { thinking: { type: "disabled" } },
+  },
+  low: {
+    reasoningEffort: "low",
+    thinking: { type: "enabled" },
+    extra_body: { thinking: { type: "enabled" } },
+  },
+  medium: {
+    reasoningEffort: "medium",
+    thinking: { type: "enabled" },
+    extra_body: { thinking: { type: "enabled" } },
+  },
+  high: {
+    reasoningEffort: "high",
+    thinking: { type: "enabled" },
+    extra_body: { thinking: { type: "enabled" } },
+  },
+  xhigh: {
+    reasoningEffort: "xhigh",
+    thinking: { type: "enabled" },
+    extra_body: { thinking: { type: "enabled" } },
+  },
+  max: {
+    reasoningEffort: "max",
+    thinking: { type: "enabled" },
+    extra_body: { thinking: { type: "enabled" } },
+  },
+} as const satisfies Record<string, OpenCodeModelVariantConfig>
+
 export default {
+  "gpt-5.6-sol": {
+    variants: GPT_REASONING_VARIANTS.noneLowMediumHighXhighMax,
+  },
+  "gpt-5.6-terra": {
+    variants: GPT_REASONING_VARIANTS.noneLowMediumHighXhighMax,
+  },
+  "gpt-5.6-luna": {
+    variants: GPT_REASONING_VARIANTS.noneLowMediumHighXhighMax,
+  },
   "gpt-5.5": {
     limit: {
-      context: 1_000_000,
-      input: 872_000,
+      context: 1_050_000,
       output: 128_000,
     },
     cost: {
       input: 5,
       output: 30,
+      cache_read: 0.5,
     },
     modalities: {
       input: ["text", "image"],
       output: ["text"],
     },
-    variants: {
-      none: {
-        reasoningEffort: "none",
-      },
-      low: {
-        reasoningEffort: "low",
-      },
-      medium: {
-        reasoningEffort: "medium",
-      },
-      high: {
-        reasoningEffort: "high",
-      },
-    },
-  },
-  "gpt-4.1-mini": {
-    limit: {
-      context: 1_047_576,
-      input: 1_014_808,
-      output: 32_768,
-    },
-    cost: {
-      input: 0.4,
-      output: 1.6,
-      cache_read: 0.1,
-    },
-    modalities: {
-      input: ["text", "image"],
-      output: ["text"],
-    },
-    variants: {
-      none: {
-        reasoningEffort: "none",
-      },
-      low: {
-        reasoningEffort: "low",
-      },
-      medium: {
-        reasoningEffort: "medium",
-      },
-      high: {
-        reasoningEffort: "high",
-      },
-    },
-  },
-  "gpt-4o-mini": {
-    limit: {
-      context: 128_000,
-      input: 111_616,
-      output: 16_384,
-    },
-    cost: {
-      input: 0.15,
-      output: 0.6,
-      cache_read: 0.075,
-    },
-    modalities: {
-      input: ["text", "image"],
-      output: ["text"],
-    },
-    variants: {
-      none: {
-        reasoningEffort: "none",
-      },
-      low: {
-        reasoningEffort: "low",
-      },
-      medium: {
-        reasoningEffort: "medium",
-      },
-      high: {
-        reasoningEffort: "high",
-      },
-    },
+    variants: GPT_REASONING_VARIANTS.noneLowMediumHighXhigh,
   },
   "deepseek-v4-pro": {
-    limit: {
-      context: 1_000_000,
-      input: 616_000,
-      output: 384_000,
-    },
+    reasoning: true,
+    tool_call: true,
+    interleaved: { field: "reasoning_content" },
+    limit: DEEPSEEK_V4_LIMIT,
     cost: {
       input: 0.435,
       output: 0.87,
@@ -103,29 +183,13 @@ export default {
       input: ["text"],
       output: ["text"],
     },
-    variants: {
-      none: {
-        thinking: { type: "disabled" },
-        extra_body: { thinking: { type: "disabled" } },
-      },
-      high: {
-        reasoningEffort: "high",
-        thinking: { type: "enabled" },
-        extra_body: { thinking: { type: "enabled" } },
-      },
-      max: {
-        reasoningEffort: "max",
-        thinking: { type: "enabled" },
-        extra_body: { thinking: { type: "enabled" } },
-      },
-    },
+    variants: DEEPSEEK_V4_VARIANTS,
   },
   "deepseek-v4-flash": {
-    limit: {
-      context: 1_000_000,
-      input: 616_000,
-      output: 384_000,
-    },
+    reasoning: true,
+    tool_call: true,
+    interleaved: { field: "reasoning_content" },
+    limit: DEEPSEEK_V4_LIMIT,
     cost: {
       input: 0.14,
       output: 0.28,
@@ -135,22 +199,7 @@ export default {
       input: ["text"],
       output: ["text"],
     },
-    variants: {
-      none: {
-        thinking: { type: "disabled" },
-        extra_body: { thinking: { type: "disabled" } },
-      },
-      high: {
-        reasoningEffort: "high",
-        thinking: { type: "enabled" },
-        extra_body: { thinking: { type: "enabled" } },
-      },
-      max: {
-        reasoningEffort: "max",
-        thinking: { type: "enabled" },
-        extra_body: { thinking: { type: "enabled" } },
-      },
-    },
+    variants: DEEPSEEK_V4_VARIANTS,
   },
   "qwen3.6-plus": {
     limit: {
@@ -264,4 +313,4 @@ export default {
       output: ["text"],
     },
   },
-} as const
+} as const satisfies Record<string, OpenCodeModelConfig>
