@@ -56,7 +56,7 @@ permission:
 以下文件的改动禁止合并到目标仓库，必须丢弃或恢复为目标仓库原状态：
 
 - `.env*`，包括所有 `.env` 文件，例如 `.env`、`.env.local`、`.env.production`。
-- `gameConfig.tsx`
+- `GameConfig.tsx`
 - `not-found.tsx`
 - `error.tsx`
 - `package.json`
