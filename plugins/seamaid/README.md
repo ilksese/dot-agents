@@ -45,17 +45,24 @@ model config with `limit`, `cost`, and `modalities`:
       "npm": "@ai-sdk/openai"
     },
     "limit": {
-      "context": 1000000,
-      "input": 872000,
+      "context": 1050000,
       "output": 128000
     },
     "cost": {
       "input": 5,
-      "output": 30
+      "output": 30,
+      "cache_read": 0.5
     },
     "modalities": {
       "input": ["text", "image"],
       "output": ["text"]
+    },
+    "variants": {
+      "none": { "reasoningEffort": "none" },
+      "low": { "reasoningEffort": "low" },
+      "medium": { "reasoningEffort": "medium" },
+      "high": { "reasoningEffort": "high" },
+      "xhigh": { "reasoningEffort": "xhigh" }
     }
   }
 }
@@ -66,14 +73,14 @@ as returned by the endpoint.
 
 ### Supported models and official sources
 
-| Registry key        | Source                                                                |
-| ------------------- | --------------------------------------------------------------------- |
-| `gpt-5.5`           | [OpenAI docs](https://developers.openai.com/api/docs/models)          |
-| `deepseek-v4-pro`   | [DeepSeek pricing](https://api-docs.deepseek.com/quick_start/pricing) |
-| `deepseek-v4-flash` | [DeepSeek pricing](https://api-docs.deepseek.com/quick_start/pricing) |
+| Registry key        | Source                                                                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gpt-*`             | [OpenAI model docs](https://developers.openai.com/api/docs/models) and [reasoning guide](https://developers.openai.com/api/docs/guides/reasoning) |
+| `deepseek-v4-pro`   | [DeepSeek pricing](https://api-docs.deepseek.com/quick_start/pricing)                                                                             |
+| `deepseek-v4-flash` | [DeepSeek pricing](https://api-docs.deepseek.com/quick_start/pricing)                                                                             |
 
-**Missing values:** If an official source does not publish a value (e.g., cached
-input pricing for GPT-5.5), the field is omitted rather than guessed.
+**Missing values:** If an official source does not publish a value, the field is
+omitted rather than guessed.
 
 The top-level provider is configured as:
 

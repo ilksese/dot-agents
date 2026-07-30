@@ -186,21 +186,25 @@ export function markSeamaidModels(models: ProviderModels): ProviderModels {
   )
 }
 
+function matchesModelContextKey(modelId: string, key: string): boolean {
+  return modelId.includes(key)
+}
+
 export function applyModelContext(models: ProviderModels): ProviderModels {
   const entries = Object.entries(modalContext).sort((a, b) => b[0].length - a[0].length)
 
-  for (const [key, ctx] of entries) {
-    for (const providerModels of Object.values(models)) {
-      for (const modelId of Object.keys(providerModels)) {
-        if (!modelId.includes(key)) continue
+  for (const providerModels of Object.values(models)) {
+    for (const modelId of Object.keys(providerModels)) {
+      const entry = entries.find(([key]) => matchesModelContextKey(modelId, key))
+      if (!entry) continue
 
-        providerModels[modelId] = {
-          ...providerModels[modelId],
-          ...(ctx.limit ? { limit: ctx.limit } : {}),
-          ...(ctx.cost ? { cost: ctx.cost } : {}),
-          ...(ctx.modalities ? { modalities: ctx.modalities } : {}),
-          ...("variants" in ctx ? { variants: ctx.variants } : {}),
-        }
+      const [, ctx] = entry
+      providerModels[modelId] = {
+        ...providerModels[modelId],
+        ...("limit" in ctx ? { limit: ctx.limit } : {}),
+        ...("cost" in ctx ? { cost: ctx.cost } : {}),
+        ...("modalities" in ctx ? { modalities: ctx.modalities } : {}),
+        ...("variants" in ctx ? { variants: ctx.variants } : {}),
       }
     }
   }
