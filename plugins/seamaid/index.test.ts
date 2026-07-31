@@ -15,8 +15,42 @@ import {
   readModelsCache,
   writeModelsCache,
 } from "./index"
+import { createSeamaidCommands } from "./commands"
 
 describe("seamaid plugin helpers", () => {
+  test("adds builtin todo commands with the project name", () => {
+    const cfg = {}
+
+    createSeamaidCommands(cfg, "dot-agents")
+
+    expect(cfg).toEqual({
+      command: {
+        "todo:defects": {
+          description: "List defects in the current repository.",
+          model: "seamaid-openai/ccodex-gpt-5.6-luna",
+          subtask: true,
+          template:
+            "<task>Use the todo-cli tools to get all the pending defects related to me in project dot-agents.</task>\n<user-request>$ARGUMENTS</user-request>",
+        },
+        "todo:tasks": {
+          description: "List tasks in the current repository.",
+          model: "seamaid-openai/ccodex-gpt-5.6-luna",
+          subtask: true,
+          template:
+            "<task>Use the todo-cli tools to get all the pending tasks related to me in project dot-agents.</task>\n<user-request>$ARGUMENTS</user-request>",
+        },
+      },
+    })
+  })
+
+  test("does not overwrite user todo command", () => {
+    const cfg = { command: { "todo:tasks": { template: "custom" } } }
+
+    createSeamaidCommands(cfg, "dot-agents")
+
+    expect(cfg.command["todo:tasks"]).toEqual({ template: "custom" })
+  })
+
   test("normalizes trailing slashes from base URL", () => {
     expect(normalizeBaseURL("https://example.com/v1///")).toBe("https://example.com/v1")
   })

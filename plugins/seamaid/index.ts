@@ -1,10 +1,12 @@
 import { homedir } from "os"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
-import { join } from "path"
+import { basename, join } from "path"
+import { createSeamaidCommands, type CommandConfig } from "./commands.js"
 import modalContext from "./modal_context.js"
 
 type OpenCodeConfig = {
   provider?: Record<string, ProviderConfig>
+  command?: Record<string, CommandConfig>
 }
 
 type ProviderConfig = {
@@ -285,7 +287,7 @@ export async function fetchSeamaidModelsCached(env: Env, fetchImpl: typeof fetch
   return models
 }
 
-export default async function seamaidPlugin() {
+export default async function seamaidPlugin({ directory, $ }: { directory: string; $: Shell }) {
   let models: ProviderModels = {}
 
   try {
@@ -294,9 +296,20 @@ export default async function seamaidPlugin() {
     console.warn("[seamaid] Failed to fetch models:", error)
   }
 
+  let projectName = basename(directory)
+  try {
+    const projectRoot = (await $`git -C ${directory} rev-parse --show-toplevel`.text()).trim()
+    if (projectRoot) projectName = basename(projectRoot)
+  } catch {
+    // Use the working directory name when the current directory is not a Git repository.
+  }
+
   return {
     config(cfg: OpenCodeConfig) {
       patchSeamaidProvider(cfg, models, process.env)
+      createSeamaidCommands(cfg, projectName)
     },
   }
 }
+
+type Shell = (strings: TemplateStringsArray, ...values: unknown[]) => { text(): Promise<string> }
