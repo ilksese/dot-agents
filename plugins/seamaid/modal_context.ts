@@ -1,63 +1,6 @@
-type OpenCodeModality = "text" | "audio" | "image" | "video" | "pdf"
-type OpenCodeStatus = "alpha" | "beta" | "deprecated" | "active"
-type OpenCodeInterleaved = true | { field: "reasoning" | "reasoning_content" | "reasoning_details" }
+import type { ModelConfig, ModelLimit, ModelVariantConfig } from "@opencode/types"
 
-type OpenCodeCost = {
-  input: number
-  output: number
-  cache_read?: number
-  cache_write?: number
-  context_over_200k?: {
-    input: number
-    output: number
-    cache_read?: number
-    cache_write?: number
-  }
-}
-
-type OpenCodeLimit = {
-  context: number
-  input?: number
-  output: number
-}
-
-type OpenCodeModalities = {
-  input?: readonly OpenCodeModality[]
-  output?: readonly OpenCodeModality[]
-}
-
-type OpenCodeModelProvider = {
-  npm?: string
-  api?: string
-}
-
-type OpenCodeModelVariantConfig = {
-  disabled?: boolean
-  [key: string]: unknown
-}
-
-type OpenCodeModelConfig = {
-  id?: string
-  name?: string
-  family?: string
-  release_date?: string
-  attachment?: boolean
-  reasoning?: boolean
-  temperature?: boolean
-  tool_call?: boolean
-  interleaved?: OpenCodeInterleaved
-  cost?: OpenCodeCost
-  limit?: OpenCodeLimit
-  modalities?: OpenCodeModalities
-  experimental?: boolean
-  status?: OpenCodeStatus
-  provider?: OpenCodeModelProvider
-  options?: object
-  headers?: Record<string, string>
-  variants?: Record<string, OpenCodeModelVariantConfig>
-}
-
-type OpenCodeReasoningEffortVariant = OpenCodeModelVariantConfig & {
+type OpenCodeReasoningEffortVariant = ModelVariantConfig & {
   reasoningEffort: "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
 }
 
@@ -109,7 +52,7 @@ const DEEPSEEK_V4_LIMIT = {
   context: 1_000_000,
   input: 616_000,
   output: 384_000,
-} as const satisfies OpenCodeLimit
+} as const satisfies ModelLimit
 
 const DEEPSEEK_V4_VARIANTS = {
   none: {
@@ -141,7 +84,7 @@ const DEEPSEEK_V4_VARIANTS = {
     thinking: { type: "enabled" },
     extra_body: { thinking: { type: "enabled" } },
   },
-} as const satisfies Record<string, OpenCodeModelVariantConfig>
+} as const satisfies Record<string, ModelVariantConfig>
 
 export default {
   "gpt-5.6-sol": {
@@ -313,4 +256,4 @@ export default {
       output: ["text"],
     },
   },
-} as const satisfies Record<string, OpenCodeModelConfig>
+} as const satisfies Record<string, ModelConfig>

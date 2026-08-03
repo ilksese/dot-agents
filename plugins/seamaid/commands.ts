@@ -1,17 +1,6 @@
-type OpenCodeConfig = {
-  command?: Record<string, CommandConfig>
-}
+import type { OpenCodeConfig } from "@opencode/types"
 
-export type CommandConfig = {
-  template: string
-  description?: string
-  agent?: string
-  model?: string
-  variant?: string
-  subtask?: boolean
-}
-
-export const createSeamaidCommands = (config: OpenCodeConfig, projectName: string) => {
+export const createSeamaidCommands = (config: Pick<OpenCodeConfig, "command">, projectName: string) => {
   config.command ??= {}
   config.command["todo:defects"] ??= {
     description: "List defects in the current repository.",

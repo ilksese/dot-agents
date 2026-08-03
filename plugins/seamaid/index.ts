@@ -1,43 +1,9 @@
 import { homedir } from "os"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { basename, join } from "path"
-import { createSeamaidCommands, type CommandConfig } from "./commands.js"
+import type { ModelConfig, OpenCodeConfig, ProviderConfig } from "@opencode/types"
+import { createSeamaidCommands } from "./commands.js"
 import modalContext from "./modal_context.js"
-
-type OpenCodeConfig = {
-  provider?: Record<string, ProviderConfig>
-  command?: Record<string, CommandConfig>
-}
-
-type ProviderConfig = {
-  npm?: string
-  name?: string
-  options?: Record<string, unknown>
-  models?: Record<string, ModelConfig>
-}
-
-type ModelConfig = {
-  name: string
-  provider?: {
-    npm: string
-  }
-  limit?: {
-    context: number
-    input?: number
-    output: number
-  }
-  cost?: {
-    input: number
-    output: number
-    cache_read?: number
-    cache_write?: number
-  }
-  modalities?: {
-    input: readonly string[]
-    output: readonly string[]
-  }
-  variants?: Record<string, Record<string, unknown>>
-}
 
 type OpenAIModelsResponse = {
   data?: Array<{
@@ -233,12 +199,12 @@ export async function fetchSeamaidModels(env: Env, fetchImpl: typeof fetch): Pro
   return markSeamaidModels(parseModels((await response.json()) as OpenAIModelsResponse))
 }
 
-function resolveOption(
-  existingValue: unknown,
-  envValue: string | undefined,
-  placeholder: string,
-  legacyPlaceholder?: string,
-): unknown {
+function resolveOption<T>(
+  existingValue: T | undefined,
+  envValue: T | undefined,
+  placeholder: T,
+  legacyPlaceholder?: T,
+): T {
   if (existingValue === undefined || existingValue === placeholder || existingValue === legacyPlaceholder) {
     return envValue ?? placeholder
   }
@@ -265,12 +231,16 @@ export function patchSeamaidProvider(cfg: OpenCodeConfig, models: ProviderModels
       options: {
         ...existingOptions,
         baseURL: resolveOption(
-          existingOptions.baseURL,
+          existingOptions.baseURL as string | undefined,
           providerBaseURL(env, provider.basePath),
           `{env:SEAMAID_BASE_URL}/${provider.basePath}`,
           "{env:SEAMAID_BASE_URL}",
         ),
-        apiKey: resolveOption(existingOptions.apiKey, env.SEAMAID_API_KEY, "{env:SEAMAID_API_KEY}"),
+        apiKey: resolveOption(
+          existingOptions.apiKey as string | undefined,
+          env.SEAMAID_API_KEY,
+          "{env:SEAMAID_API_KEY}",
+        ),
         setCacheKey: true,
       },
       models: providerModels && Object.keys(providerModels).length > 0 ? providerModels : (existing.models ?? {}),

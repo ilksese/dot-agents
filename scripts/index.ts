@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process"
 import { createInterface } from "node:readline"
 import { Command } from "commander"
 import { parse as parseJsonc } from "jsonc-parser"
+import type { OpenCodeConfig } from "@opencode/types"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -39,7 +40,7 @@ type PluginConfigSync = {
   configPath: string
   plugins: string[]
   newPlugins: string[]
-  mergedPlugin: unknown[]
+  mergedPlugin: NonNullable<OpenCodeConfig["plugin"]>
   existingPaths: Set<string>
 }
 
@@ -288,10 +289,10 @@ function resolveConfigPath(configDir: string): string {
   return jsoncPath
 }
 
-function readConfig(configPath: string): Record<string, unknown> {
+function readConfig(configPath: string): OpenCodeConfig {
   if (!fs.existsSync(configPath)) return {}
   const raw = fs.readFileSync(configPath, "utf-8")
-  return parseJsonc(raw) as Record<string, unknown>
+  return parseJsonc(raw) as OpenCodeConfig
 }
 
 function mergePluginConfig(targetDir: string, plugins: string[]): PluginConfigSync {
@@ -312,7 +313,7 @@ function mergePluginConfig(targetDir: string, plugins: string[]): PluginConfigSy
 
 function writePluginConfig(sync: PluginConfigSync): void {
   const existingConfig = readConfig(sync.configPath)
-  const config: Record<string, unknown> = {
+  const config: OpenCodeConfig = {
     ...existingConfig,
     plugin: sync.mergedPlugin,
   }

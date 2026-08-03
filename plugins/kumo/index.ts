@@ -1,6 +1,8 @@
+import type { OpenCodeConfig } from "@opencode/types"
+
 export default async function kumoPlugin() {
   return {
-    config(cfg: { agent?: Record<string, Record<string, unknown>> }) {
+    config(cfg: Pick<OpenCodeConfig, "agent">) {
       cfg.agent = {
         ...cfg.agent,
         title: {

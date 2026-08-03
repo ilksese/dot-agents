@@ -3,6 +3,11 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "nodenext",
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@opencode/types": ["types/opencode.d.ts"]
+    },
     "outDir": "./dist",
     "rootDir": ".",
     "strict": true,
