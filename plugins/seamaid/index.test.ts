@@ -18,26 +18,41 @@ import {
 import { createSeamaidCommands } from "./commands"
 
 describe("seamaid plugin helpers", () => {
-  test("adds builtin todo commands with the project name", () => {
+  test("adds builtin commands with the project name", () => {
     const cfg = {}
 
     createSeamaidCommands(cfg, "dot-agents")
 
     expect(cfg).toEqual({
       command: {
+        "ego:test-ui": {
+          description: "使用ego浏览器进行UI冒烟测试",
+          template:
+            "<task>\n使用ego浏览器对UI进行冒烟测试，关注范围：文字字体、文字颜色、文字盘版、元素尺寸、元素可交互区域、图标大小、图标颜色、图片尺寸、背景色、内外边距、文档流\n</task>\n<user-request>\n$ARGUMENTS\n</user-request>",
+        },
         "todo:defects": {
           description: "List defects in the current repository.",
           model: "seamaid-openai/ccodex-gpt-5.6-luna",
           subtask: true,
+          variant: "low",
           template:
-            "<task>Use the todo-cli tools to get all the pending defects related to me in project dot-agents.</task>\n<user-request>$ARGUMENTS</user-request>",
+            "<task>\nUse the todo-cli tools to get all the pending defects related to me in project dot-agents.\n</task>\n<user-request>\n$ARGUMENTS\n</user-request>",
+        },
+        "todo:refresh": {
+          description: "Refresh the todo session and GET_USER_ACTION.",
+          model: "seamaid-openai/ccodex-gpt-5.6-luna",
+          subtask: true,
+          variant: "low",
+          template:
+            "<task>\nFirst validate the existing local .todorc session and env.GET_USER_ACTION by running todo-cli for project dot-agents. If authentication succeeds, report that the session and GET_USER_ACTION are still valid and do not modify .todorc. Only when the result clearly shows an invalid or expired session/action (not a network or unrelated data error), use ego-browser to open https://todo.jinuotec.com/demand?project=dot-agents with the authenticated browser session, extract the current todo.jinuotec.com session cookie and getUser Next.js server action, then update .todorc session and env.GET_USER_ACTION without exposing the session value. Verify the refresh by running todo-cli again.\n</task>\n<user-request>\n$ARGUMENTS\n</user-request>",
         },
         "todo:tasks": {
           description: "List tasks in the current repository.",
           model: "seamaid-openai/ccodex-gpt-5.6-luna",
           subtask: true,
+          variant: "low",
           template:
-            "<task>Use the todo-cli tools to get all the pending tasks related to me in project dot-agents.</task>\n<user-request>$ARGUMENTS</user-request>",
+            "<task>\nUse the todo-cli tools to get all the pending tasks related to me in project dot-agents.\n</task>\n<user-request>\n$ARGUMENTS\n</user-request>",
         },
       },
     })

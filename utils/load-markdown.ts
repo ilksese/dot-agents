@@ -1,16 +1,11 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
-import { basename, dirname, extname, join } from "node:path"
-import { fileURLToPath } from "node:url"
-import type { AgentConfig } from "@opencode/types"
+export type MarkdownFrontmatter = {
+  attributes: Record<string, unknown>
+  body: string
+}
 
-type LoadedAgent = AgentConfig & Record<string, unknown>
-type LoadedAgents = Record<string, LoadedAgent>
 type Quote = "'" | '"' | null
 type SourceLine = { indent: number; text: string }
 type ParsedBlock = { value: unknown; nextIndex: number }
-
-const KUMO_DIR = dirname(fileURLToPath(import.meta.url))
-const DEFAULT_AGENTS_DIR = join(KUMO_DIR, "../../agents")
 
 function toggleQuote(quote: Quote, character: string): Quote {
   if (character !== "'" && character !== '"') return quote
@@ -231,10 +226,10 @@ function parseYamlObject(lines: SourceLine[], startIndex: number, indent: number
   return { value: result, nextIndex: index }
 }
 
-function parseFrontmatter(source: string, filePath: string): { attributes: Record<string, unknown>; prompt: string } {
+export function parseMarkdownFrontmatter(source: string, filePath: string): MarkdownFrontmatter {
   const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)([\s\S]*)$/)
   if (!match) {
-    throw new Error(`Agent file must start with YAML frontmatter: ${filePath}`)
+    throw new Error(`Markdown file must start with YAML frontmatter: ${filePath}`)
   }
 
   const lines = match[1]
@@ -245,40 +240,12 @@ function parseFrontmatter(source: string, filePath: string): { attributes: Recor
     }))
     .filter((line) => line.text !== "" && !line.text.startsWith("#"))
 
-  if (lines.length === 0) return { attributes: {}, prompt: match[2].trim() }
+  if (lines.length === 0) return { attributes: {}, body: match[2].trim() }
 
   const parsed = parseYamlBlock(lines, 0, lines[0].indent).value
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`Agent frontmatter must be a YAML object: ${filePath}`)
+    throw new Error(`Markdown frontmatter must be a YAML object: ${filePath}`)
   }
 
-  return { attributes: parsed as Record<string, unknown>, prompt: match[2].trim() }
-}
-
-/**
- * Load all Markdown agent definitions from `agentsDir`.
- *
- * The file name (without `.md`) becomes the OpenCode agent name, YAML
- * frontmatter becomes the agent config, and the Markdown body becomes `prompt`.
- */
-export function loadAgent(agentsDir = DEFAULT_AGENTS_DIR): LoadedAgents {
-  if (!existsSync(agentsDir) || !statSync(agentsDir).isDirectory()) return {}
-
-  const agents: LoadedAgents = {}
-  const files = readdirSync(agentsDir, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && extname(entry.name).toLowerCase() === ".md")
-    .map((entry) => entry.name)
-    .sort()
-
-  for (const file of files) {
-    const filePath = join(agentsDir, file)
-    const { attributes, prompt } = parseFrontmatter(readFileSync(filePath, "utf-8"), filePath)
-    const name = basename(file, extname(file))
-    agents[name] = {
-      ...attributes,
-      ...(prompt ? { prompt } : {}),
-    }
-  }
-
-  return agents
+  return { attributes: parsed as Record<string, unknown>, body: match[2].trim() }
 }
