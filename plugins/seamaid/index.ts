@@ -1,5 +1,5 @@
 import { homedir } from "os"
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs"
 import { basename, join } from "path"
 import type { ModelConfig, OpenCodeConfig, ProviderConfig } from "@opencode/types"
 import { createSeamaidCommands } from "./commands.js"
@@ -68,6 +68,10 @@ function cacheFile(env: Env): string {
   return join(cacheDir(env), "seamaid-models.json")
 }
 
+function hasModels(models: ProviderModels): boolean {
+  return Object.values(models).some((providerModels) => Object.keys(providerModels).length > 0)
+}
+
 export function readModelsCache(env: Env): ProviderModels | null {
   const ttl = getCacheTTL(env)
   if (ttl === 0) return null
@@ -77,6 +81,7 @@ export function readModelsCache(env: Env): ProviderModels | null {
     if (!existsSync(file)) return null
     const raw = readFileSync(file, "utf-8")
     const entry: CacheEntry = JSON.parse(raw)
+    if (!hasModels(entry.data)) return null
     const age = (Date.now() - entry.timestamp) / 1000
     if (age > ttl) return null
     return entry.data
@@ -87,6 +92,12 @@ export function readModelsCache(env: Env): ProviderModels | null {
 
 export function writeModelsCache(data: ProviderModels, env: Env): void {
   try {
+    if (!hasModels(data)) {
+      // Never persist an empty model list: a transient failure would otherwise
+      // poison the cache and hide models until the TTL expires.
+      rmSync(cacheFile(env), { force: true })
+      return
+    }
     const dir = cacheDir(env)
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true })

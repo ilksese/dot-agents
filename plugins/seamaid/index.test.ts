@@ -396,6 +396,38 @@ describe("cache helpers", () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
+  test("readModelsCache returns null when cache contains empty models", () => {
+    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const env = { SEAMAID_CACHE_DIR: dir }
+    writeFileSync(join(dir, "seamaid-models.json"), JSON.stringify({ timestamp: Date.now(), data: {} }), "utf-8")
+
+    expect(readModelsCache(env)).toBeNull()
+
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  test("writeModelsCache does not write empty models", () => {
+    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const env = { SEAMAID_CACHE_DIR: dir }
+
+    writeModelsCache({}, env)
+    expect(readModelsCache(env)).toBeNull()
+
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  test("writeModelsCache removes a stale empty cache file", () => {
+    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const env = { SEAMAID_CACHE_DIR: dir }
+    const file = join(dir, "seamaid-models.json")
+    writeFileSync(file, JSON.stringify({ timestamp: Date.now(), data: {} }), "utf-8")
+
+    writeModelsCache({}, env)
+    expect(existsSync(file)).toBe(false)
+
+    rmSync(dir, { recursive: true, force: true })
+  })
+
   test("writeModelsCache and readModelsCache round-trip", () => {
     const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
     const env = { SEAMAID_CACHE_DIR: dir }
@@ -457,6 +489,17 @@ describe("cache helpers", () => {
     // Verify cache was written
     const cached = readModelsCache(env)
     expect(cached).toEqual(result)
+
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  test("fetchSeamaidModelsCached does not cache an empty fetch result", async () => {
+    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const env = { SEAMAID_CACHE_DIR: dir }
+
+    const result = await fetchSeamaidModelsCached(env, fetch)
+    expect(result).toEqual({})
+    expect(readModelsCache(env)).toBeNull()
 
     rmSync(dir, { recursive: true, force: true })
   })
