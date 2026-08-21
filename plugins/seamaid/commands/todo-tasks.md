@@ -1,8 +1,6 @@
 ---
 description: List tasks in the current repository.
 subtask: true
-model: seamaid-openai/ccodex-gpt-5.6-luna
-variant: low
 ---
 
 <task>

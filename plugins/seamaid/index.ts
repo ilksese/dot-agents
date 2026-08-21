@@ -290,6 +290,19 @@ export default async function seamaidPlugin({ directory, $ }: { directory: strin
       patchSeamaidProvider(cfg, models, process.env)
       createSeamaidCommands(cfg, projectName)
     },
+    "command.execute.before": async (input, output) => {
+      if (input.command !== "seamaid:ego-test-ui") return
+      const args = input.arguments ?? ""
+      const figma = args.match(/https?:\/\/[^\s]*figma[^\s]*/i)?.[0]
+      const local = args.match(/https?:\/\/(?:localhost|127\.0\.0\.1)[^\s]*/i)?.[0]
+      for (const part of output.parts) {
+        if (part.type !== "text") continue
+        let text = part.text
+        text = text.replace(/<figma-url>\s*<\/figma-url>/, figma ? `<figma-url>\n${figma}\n</figma-url>` : "")
+        text = text.replace(/<browser-url>\s*<\/browser-url>/, local ? `<browser-url>\n${local}\n</browser-url>` : "")
+        part.text = text
+      }
+    },
   }
 }
 

@@ -1,4 +1,4 @@
-import { dirname, join } from "node:path"
+import { basename, dirname, extname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { OpenCodeConfig } from "@opencode/types"
 import { loadCommand } from "../../utils/load-command.js"
@@ -13,7 +13,11 @@ const DEFAULT_COMMANDS_DIR = join(SEAMAID_DIR, "commands")
  * Frontmatter becomes the command config and the Markdown body becomes `template`.
  */
 export function loadSeamaidCommands(projectName: string, commandsDir = DEFAULT_COMMANDS_DIR) {
-  return loadCommand({ commandsDir, variables: { projectName } })
+  return loadCommand({
+    commandsDir,
+    variables: { projectName },
+    commandKeyFromFileName: (fileName) => `seamaid:${basename(fileName, extname(fileName))}`,
+  })
 }
 
 export const createSeamaidCommands = (config: Pick<OpenCodeConfig, "command">, projectName: string) => {

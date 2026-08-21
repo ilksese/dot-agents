@@ -1,8 +1,6 @@
 ---
 description: Refresh the todo session and GET_USER_ACTION.
 subtask: true
-model: seamaid-openai/ccodex-gpt-5.6-luna
-variant: low
 ---
 
 <task>
