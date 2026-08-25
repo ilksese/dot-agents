@@ -191,15 +191,16 @@ export default {
     },
   },
   "qwen3.7-max": {
+    reasoning: true,
+    tool_call: true,
     limit: {
       context: 1_000_000,
-      input: 991_800,
       output: 65_536,
     },
     cost: {
       input: 2.5,
       output: 7.5,
-      cache_read: 0.25,
+      cache_read: 0.5,
     },
     modalities: {
       input: ["text"],
@@ -207,15 +208,34 @@ export default {
     },
   },
   "qwen3.7-plus": {
+    reasoning: true,
+    tool_call: true,
     limit: {
       context: 1_000_000,
-      input: 991_800,
-      output: 65_536,
+      output: 64_000,
     },
     cost: {
       input: 0.4,
       output: 1.6,
-      cache_read: 0.04,
+      cache_read: 0.08,
+    },
+    modalities: {
+      input: ["text", "image", "video"],
+      output: ["text"],
+    },
+  },
+  "qwen3.8-max": {
+    reasoning: true,
+    tool_call: true,
+    limit: {
+      context: 1_000_000,
+      output: 131_072,
+    },
+    cost: {
+      input: 2,
+      output: 6,
+      cache_read: 0.25,
+      cache_write: 2.5,
     },
     modalities: {
       input: ["text", "image", "video"],
@@ -259,6 +279,24 @@ export default {
       context: 1_000_000,
       input: 872_000,
       output: 128_000,
+    },
+    cost: {
+      input: 1.4,
+      output: 4.4,
+      cache_read: 0.26,
+    },
+    modalities: {
+      input: ["text"],
+      output: ["text"],
+    },
+  },
+  "glm-5.3": {
+    reasoning: true,
+    tool_call: true,
+    limit: {
+      context: 1_048_576,
+      input: 1_048_576,
+      output: 131_072,
     },
     cost: {
       input: 1.4,
