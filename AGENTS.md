@@ -4,7 +4,7 @@ Single-user opencode workflow package. Syncs `agents/`, `commands/`, `plugins/`,
 
 ## Key commands
 
-- `npm run build` — `tsc`, compiles `scripts/` → `dist/`
+- `pnpm run build` — `tsc`, compiles `scripts/` → `dist/`
 - `node dist/scripts/index.js init` — sync to `~/.config/opencode/`
 - `node dist/scripts/index.js init --dry-run --target test/.opencode` — preview without touching real config
 
@@ -26,4 +26,4 @@ All script testing must stay within the project path. Always use `--target test/
 
 ## No linter, no formatter, no test runner
 
-Build verification: `npm run build && node dist/scripts/index.js --dry-run --target test/.opencode`
+Build verification: `pnpm run build && node dist/scripts/index.js init --dry-run --target test/.opencode`
