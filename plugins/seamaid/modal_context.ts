@@ -48,6 +48,21 @@ const GPT_REASONING_VARIANTS = {
   },
 } as const satisfies Record<string, Record<string, OpenCodeReasoningEffortVariant>>
 
+const GROK_4_5_VARIANTS = {
+  none: {
+    reasoningEffort: "none",
+  },
+  low: {
+    reasoningEffort: "low",
+  },
+  medium: {
+    reasoningEffort: "medium",
+  },
+  high: {
+    reasoningEffort: "high",
+  },
+} as const satisfies Record<string, OpenCodeReasoningEffortVariant>
+
 const DEEPSEEK_V4_LIMIT = {
   context: 1_000_000,
   input: 616_000,
@@ -111,6 +126,21 @@ export default {
       output: ["text"],
     },
     variants: GPT_REASONING_VARIANTS.noneLowMediumHighXhigh,
+  },
+  "grok-4.5": {
+    limit: {
+      context: 500_000,
+      output: 500_000,
+    },
+    cost: {
+      input: 2,
+      output: 6,
+    },
+    modalities: {
+      input: ["text"],
+      output: ["text"],
+    },
+    variants: GROK_4_5_VARIANTS,
   },
   "deepseek-v4-pro": {
     reasoning: true,
