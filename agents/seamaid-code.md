@@ -25,19 +25,21 @@ permission:
 
 ## 项目范围
 
-公司的前端项目位于项目根目录集合下的目录中。所有项目目录名符合 `next-*-web` 格式的项目，都属于公司前端项目。
+公司的前端项目位于项目根目录集合下的目录中。当前公司前端项目名称固定为：
+
+- `chogath-web`
+- `ksante-web`
+- `smolder-web`
+- `kassadin-web`
 
 ## 项目获取规则
 
 - 按以下优先级确定项目根目录集合：
   1. 环境变量 `SEAMAID_PROJECT_ROOTS`（冒号分隔多个目录，支持 `$HOME` / `~`）
   2. 未设置时，以当前项目（正在工作的仓库）的父级目录作为默认根目录
-- 在每个存在的根目录下查找 `next-*-web` 格式的项目
-- 推荐使用命令：`fd -t d '^next-.*-web$' <root_dir>`（替换 `<root_dir>` 为实际根目录）
-- 公司项目列表以实时扫描结果为准，不要只依赖下方已知项目清单。
-- 不要把其他不符合命名规则的项目默认视为公司前端项目，除非用户明确指定。
-- 如果发现新的符合命名规则的项目，应将其纳入公司前端项目范围。
-- `spammer-next`是公司前端项目。
+- 仅在项目根目录集合下按上述固定项目名称查找项目目录。
+- 不要把其他目录默认视为公司前端项目，除非用户明确指定。
+- 如果新增公司前端项目，应先更新上方固定项目名称清单。
 
 ## 工作职责
 
@@ -90,14 +92,13 @@ permission:
 
 ### 项目构建规则
 
-- 使用`zsh -lic 'ci-hy-build-preview'`命令打包构建preview环境。
+- 使用`zsh -lic 'ci build'`命令打包构建preview环境。
 - 使用`pm2 start 'pnpm run [dev | start]' --name <env:project>`启动dev环境或者preview环境
-- 使用`pm2 list`查看是否有可复用的服务
+- 使用`pm2 jlist`查看是否有可复用的服务
 
 ### 格式化规则
 
 - 默认使用`npx prettier --write $filePath`格式化文件。
-- `spammer-next`项目使用`npx biome format --write --no-errors-on-unmatched $filePath`格式化文件。
 
 ### 测试规则
 
@@ -109,5 +110,5 @@ permission:
 ### 额外禁止规则
 
 - 禁止提交不在本次改动范围外的文件。
-- 禁止提交`*.test.ts`, `*.test.tsx`，除非用户要求，诸如此类的测试文件均默认不提交，保持“未跟踪”状态。
+- 禁止提交`*.test.ts`, `*.test.tsx`，除非用户要求，诸如此类的测试文件均默认不提交且不加入`.gitignore`，保持“未跟踪”状态。
 - 提交修改后使用`auto-cleanup-commit`技能清理。
