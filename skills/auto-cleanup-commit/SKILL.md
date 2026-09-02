@@ -53,27 +53,41 @@ if [ -n "$UPSTREAM" ]; then
   USE_ROOT=0
 else
   # Case B/C/D: No remote branch — detect local base branch
-  if git show-ref --verify --quiet refs/heads/main; then
-    BASE_BRANCH="main"
-  elif git show-ref --verify --quiet refs/heads/master; then
-    BASE_BRANCH="master"
+  if [ "$CURRENT_BRANCH" != "dev" ] && git show-ref --verify --quiet refs/heads/dev; then
+    DEV_BASE=$(git merge-base "$CURRENT_BRANCH" dev 2>/dev/null)
   else
-    BASE_BRANCH=""
+    DEV_BASE=""
   fi
 
-  if [ -n "$BASE_BRANCH" ] && [ "$CURRENT_BRANCH" = "$BASE_BRANCH" ]; then
-    # Case B: Current branch IS the base branch with no remote — show all commits
-    USE_ROOT=1
-  elif [ -n "$BASE_BRANCH" ]; then
-    # Case C: Feature branch, compare with the local base branch
-    UPSTREAM="$BASE_BRANCH"
+  if [ "$CURRENT_BRANCH" != "master" ] && git show-ref --verify --quiet refs/heads/master; then
+    MASTER_BASE=$(git merge-base "$CURRENT_BRANCH" master 2>/dev/null)
+  else
+    MASTER_BASE=""
+  fi
+
+  if [ -n "$DEV_BASE" ] || [ -n "$MASTER_BASE" ]; then
+    if [ -n "$DEV_BASE" ] && [ -n "$MASTER_BASE" ]; then
+      DEV_DISTANCE=$(git rev-list --ancestry-path --count "$DEV_BASE..$CURRENT_BRANCH" 2>/dev/null)
+      MASTER_DISTANCE=$(git rev-list --ancestry-path --count "$MASTER_BASE..$CURRENT_BRANCH" 2>/dev/null)
+      if [ "$DEV_DISTANCE" -le "$MASTER_DISTANCE" ]; then
+        UPSTREAM="$DEV_BASE"
+      else
+        UPSTREAM="$MASTER_BASE"
+      fi
+    elif [ -n "$DEV_BASE" ]; then
+      UPSTREAM="$DEV_BASE"
+    else
+      UPSTREAM="$MASTER_BASE"
+    fi
     USE_ROOT=0
   else
-    # Case D: No main/master branch found at all — show all commits
+    # Case D: No dev/master branch found at all — show all commits
     USE_ROOT=1
   fi
 fi
 ```
+
+If no upstream exists, compute `merge-base` against local `dev` and `master`, skip the branch that is currently checked out, then choose the closer merge-base to `HEAD` as the starting point for cleanup.
 
 ### 3. List the target commits
 
