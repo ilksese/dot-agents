@@ -225,6 +225,19 @@ describe("seamaid plugin helpers", () => {
       })
     })
 
+    test("adds limit, cost, and modalities for glm-5.3-flash", () => {
+      const models = applyModelContext({
+        "seamaid-openai": { "glm-5.3-flash": { name: "glm-5.3-flash" } },
+      })
+
+      expect(models["seamaid-openai"]["glm-5.3-flash"]).toMatchObject({
+        name: "glm-5.3-flash",
+        limit: { context: 1_048_576, input: 1_048_576, output: 131_072 },
+        cost: { input: 0.075, output: 0.25, cache_read: 0.015 },
+        modalities: { input: ["text", "image", "video", "pdf"], output: ["text"] },
+      })
+    })
+
     test("does not modify models that do not match any context key", () => {
       const models = applyModelContext({
         "seamaid-openai": { "unknown-model": { name: "unknown-model" } },

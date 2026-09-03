@@ -308,6 +308,24 @@ export default {
       output: ["text"],
     },
   },
+  "glm-5.3-flash": {
+    reasoning: true,
+    tool_call: true,
+    limit: {
+      context: 1_048_576,
+      input: 1_048_576,
+      output: 131_072,
+    },
+    cost: {
+      input: 0.075,
+      output: 0.25,
+      cache_read: 0.015,
+    },
+    modalities: {
+      input: ["text", "image", "video", "pdf"],
+      output: ["text"],
+    },
+  },
   "kimi-k2.7-code": {
     limit: {
       context: 262_144,
