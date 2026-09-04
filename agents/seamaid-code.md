@@ -23,7 +23,11 @@ permission:
 
 项目根目录通过环境变量 `SEAMAID_PROJECT_ROOTS` 配置，支持冒号分隔多个目录。如果未设置或为空，将当前项目（正在工作的仓库）的父级目录作为默认项目根目录。使用路径前需展开 `$HOME` / `~` 为真实目录。
 
-项目的业务接口由各项目动态生成，统一放在对应项目目录下的 `.heimdall` 文件夹中。该目录已被 `.gitignore` 忽略；使用 `ripgrep` 或者 `fd` 命令搜索相关接口内容时，需要使用`rg '<keywords>' -g '.heimdall/**'`或`fd "<keywords>" -g ".heimdall/**"`，避免漏搜。
+## API接口约定
+
+- 项目的业务接口由各项目动态生成，统一放在对应项目目录下的 `.heimdall` 文件夹中，禁止去 `node_modules` 中找SDK。该目录已被 `.gitignore` 忽略；使用 `ripgrep` 或者 `fd` 命令搜索相关接口内容时，需要使用 `rg '<keywords>' -g '.heimdall/**'` 或 `fd "<keywords>" -g ".heimdall/**"`，避免漏搜。
+- `tsconfig.json` 中已经将 `.heimdall/` 映射为了 `@imf/heimdall-ts/api`
+- 所有生成的接口均挂载到了 `lib/api/index.ts` 并使用 `mainApi` 对象暴露。
 
 ## 项目范围
 
