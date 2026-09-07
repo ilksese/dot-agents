@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs"
 import { basename, join } from "path"
 import type { ModelConfig, OpenCodeConfig, ProviderConfig } from "@opencode/types"
 import { createSeamaidCommands } from "./commands.js"
-import modalContext from "./modal_context.js"
+import { fetchModelContext, type ModelContext } from "./modal_context.js"
 
 type OpenAIModelsResponse = {
   data?: Array<{
@@ -45,10 +45,15 @@ const OPENAI_NPM = "@ai-sdk/openai"
 
 const CACHE_DIR = join(homedir(), ".opencode", "cache")
 const CACHE_FILE = join(CACHE_DIR, "seamaid-models.json")
+const MODEL_CONTEXT_CACHE_FILE = "models-dev-context.json"
 const DEFAULT_CACHE_TTL = 10 * 60 * 60 // 10 hours in seconds
 type CacheEntry = {
   timestamp: number
   data: ProviderModels
+}
+type ModelContextCacheEntry = {
+  timestamp: number
+  data: ModelContext
 }
 
 export function getCacheTTL(env: Env): number {
@@ -66,6 +71,10 @@ function cacheDir(env: Env): string {
 
 function cacheFile(env: Env): string {
   return join(cacheDir(env), "seamaid-models.json")
+}
+
+function modelContextCacheFile(env: Env): string {
+  return join(cacheDir(env), MODEL_CONTEXT_CACHE_FILE)
 }
 
 function hasModels(models: ProviderModels): boolean {
@@ -104,6 +113,47 @@ export function writeModelsCache(data: ProviderModels, env: Env): void {
     }
     const entry: CacheEntry = { timestamp: Date.now(), data }
     writeFileSync(cacheFile(env), JSON.stringify(entry), "utf-8")
+  } catch {
+    // cache write failure is non-fatal
+  }
+}
+
+function hasModelContext(context: ModelContext): boolean {
+  return Object.keys(context).length > 0
+}
+
+export function readModelContextCache(env: Env): ModelContext | null {
+  const ttl = getCacheTTL(env)
+  if (ttl === 0) return null
+
+  try {
+    const file = modelContextCacheFile(env)
+    if (!existsSync(file)) return null
+    const raw = readFileSync(file, "utf-8")
+    const entry: ModelContextCacheEntry = JSON.parse(raw)
+    if (!hasModelContext(entry.data)) return null
+    const age = (Date.now() - entry.timestamp) / 1000
+    if (age > ttl) return null
+    return entry.data
+  } catch {
+    return null
+  }
+}
+
+export function writeModelContextCache(data: ModelContext, env: Env): void {
+  if (getCacheTTL(env) === 0) return
+
+  try {
+    if (!hasModelContext(data)) {
+      rmSync(modelContextCacheFile(env), { force: true })
+      return
+    }
+    const dir = cacheDir(env)
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true })
+    }
+    const entry: ModelContextCacheEntry = { timestamp: Date.now(), data }
+    writeFileSync(modelContextCacheFile(env), JSON.stringify(entry), "utf-8")
   } catch {
     // cache write failure is non-fatal
   }
@@ -165,21 +215,41 @@ export function markSeamaidModels(models: ProviderModels): ProviderModels {
   )
 }
 
-function matchesModelContextKey(modelId: string, key: string): boolean {
-  return modelId.includes(key)
+function modelContextMatch(modelId: string, key: string): boolean {
+  const lowerModelID = modelId.toLowerCase()
+  const lowerKey = key.toLowerCase()
+  const shortKey = lowerKey.slice(lowerKey.lastIndexOf("/") + 1)
+  return lowerModelID.includes(lowerKey) || lowerModelID.includes(shortKey)
 }
 
-export function applyModelContext(models: ProviderModels): ProviderModels {
-  const entries = Object.entries(modalContext).sort((a, b) => b[0].length - a[0].length)
+function modelContextMatchScore(modelId: string, key: string): number {
+  const lowerModelID = modelId.toLowerCase()
+  const lowerKey = key.toLowerCase()
+  if (lowerModelID === lowerKey) return 3
+  if (lowerModelID.includes(lowerKey)) return 2
+  return 1
+}
+
+export function applyModelContext(models: ProviderModels, context: ModelContext = {}): ProviderModels {
+  const entries = Object.entries(context)
 
   for (const providerModels of Object.values(models)) {
     for (const modelId of Object.keys(providerModels)) {
-      const entry = entries.find(([key]) => matchesModelContextKey(modelId, key))
+      const entry = entries
+        .filter(([key]) => modelContextMatch(modelId, key))
+        .sort(
+          (a, b) =>
+            modelContextMatchScore(modelId, b[0]) - modelContextMatchScore(modelId, a[0]) || b[0].length - a[0].length,
+        )[0]
       if (!entry) continue
 
       const [, ctx] = entry
       providerModels[modelId] = {
         ...providerModels[modelId],
+        ...(ctx.reasoning !== undefined ? { reasoning: ctx.reasoning } : {}),
+        ...(ctx.temperature !== undefined ? { temperature: ctx.temperature } : {}),
+        ...(ctx.tool_call !== undefined ? { tool_call: ctx.tool_call } : {}),
+        ...(ctx.interleaved !== undefined ? { interleaved: ctx.interleaved } : {}),
         ...("limit" in ctx ? { limit: ctx.limit } : {}),
         ...("cost" in ctx ? { cost: ctx.cost } : {}),
         ...("modalities" in ctx ? { modalities: ctx.modalities } : {}),
@@ -268,13 +338,30 @@ export async function fetchSeamaidModelsCached(env: Env, fetchImpl: typeof fetch
   return models
 }
 
+export async function fetchModelContextCached(env: Env, fetchImpl: typeof fetch): Promise<ModelContext> {
+  const cached = readModelContextCache(env)
+  if (cached !== null) return cached
+
+  const context = await fetchModelContext(fetchImpl)
+  writeModelContextCache(context, env)
+  return context
+}
+
 export default async function seamaidPlugin({ directory, $ }: { directory: string; $: Shell }) {
   let models: ProviderModels = {}
 
   try {
-    models = applyModelContext(await fetchSeamaidModelsCached(process.env, fetch))
+    models = await fetchSeamaidModelsCached(process.env, fetch)
   } catch (error) {
     console.warn("[seamaid] Failed to fetch models:", error)
+  }
+
+  if (hasModels(models)) {
+    try {
+      models = applyModelContext(models, await fetchModelContextCached(process.env, fetch))
+    } catch (error) {
+      console.warn("[seamaid] Failed to fetch model context:", error)
+    }
   }
 
   let projectName = basename(directory)

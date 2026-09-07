@@ -32,10 +32,13 @@ with `@ai-sdk/openai-compatible`.
 
 ## Behavior
 
-Each fetched model is matched against a hardcoded context registry in
-[`modal_context.ts`](modal_context.ts). When a model ID includes a registry key
-(e.g., `"openai/gpt-5.5"` contains `"gpt-5.5"`), the plugin supplements the
-model config with `limit`, `cost`, and `modalities`:
+Each fetched model is matched against the model metadata from
+[`models.dev/catalog.json`](https://models.dev/catalog.json), parsed by
+[`modal_context.ts`](modal_context.ts). The catalog supplies `limit`, `cost`,
+`modalities`, `interleaved`, and provider-specific `reasoning_options`. When a
+model ID includes a catalog model ID (e.g., `"openai/gpt-5.5"` contains
+`"gpt-5.5"`), the plugin converts supported effort values into OpenCode
+variants:
 
 ```json
 {
@@ -68,19 +71,14 @@ model config with `limit`, `cost`, and `modalities`:
 }
 ```
 
-Models that do not match any registry key are added with `name` only, exactly
-as returned by the endpoint.
+Models that do not match any catalog model are added with `name` only, exactly as
+returned by the endpoint.
 
-### Supported models and official sources
-
-| Registry key        | Source                                                                                                                                            |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gpt-*`             | [OpenAI model docs](https://developers.openai.com/api/docs/models) and [reasoning guide](https://developers.openai.com/api/docs/guides/reasoning) |
-| `deepseek-v4-pro`   | [DeepSeek pricing](https://api-docs.deepseek.com/quick_start/pricing)                                                                             |
-| `deepseek-v4-flash` | [DeepSeek pricing](https://api-docs.deepseek.com/quick_start/pricing)                                                                             |
-
-**Missing values:** If an official source does not publish a value, the field is
-omitted rather than guessed.
+**Missing values:** If Models.dev does not publish a value, the field is omitted
+rather than guessed. If Models.dev is unavailable, fetched models remain
+configured without supplemental context metadata. Models.dev metadata uses the
+same `SEAMAID_CACHE_TTL` and `SEAMAID_CACHE_DIR` settings as the Seamaid model
+list; setting `SEAMAID_CACHE_TTL=0` forces both endpoints to be fetched.
 
 The top-level provider is configured as:
 

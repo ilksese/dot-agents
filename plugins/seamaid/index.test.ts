@@ -5,6 +5,7 @@ import { tmpdir } from "os"
 import {
   fetchSeamaidModels,
   fetchSeamaidModelsCached,
+  fetchModelContextCached,
   markSeamaidModels,
   modelsEndpoint,
   normalizeBaseURL,
@@ -13,9 +14,12 @@ import {
   applyModelContext,
   getCacheTTL,
   readModelsCache,
+  readModelContextCache,
   writeModelsCache,
+  writeModelContextCache,
 } from "./index"
 import { createSeamaidCommands } from "./commands"
+import { fetchModelContext, MODELS_DEV_CATALOG_URL, parseModelContext } from "./modal_context"
 
 describe("seamaid plugin helpers", () => {
   test("adds builtin commands with the project name", () => {
@@ -72,6 +76,73 @@ describe("seamaid plugin helpers", () => {
 
   test("builds OpenAI-compatible models endpoint", () => {
     expect(modelsEndpoint("https://example.com/v1/")).toBe("https://example.com/v1/models")
+  })
+
+  test("parses models.dev provider metadata and reasoning levels", () => {
+    const context = parseModelContext({
+      models: {
+        "openai/gpt-5.4": {
+          reasoning: true,
+          limit: { context: 1_000_000, output: 128_000 },
+          modalities: { input: ["text"], output: ["text"] },
+        },
+        "deepseek/deepseek-v4-pro": {
+          reasoning: true,
+          interleaved: { field: "reasoning_content" },
+        },
+      },
+      providers: {
+        openai: {
+          models: {
+            "gpt-5.4": {
+              cost: { input: 2.5, output: 15 },
+              reasoning_options: [{ type: "effort", values: ["none", "low", "medium", "high", "xhigh"] }],
+            },
+          },
+        },
+        deepseek: {
+          models: {
+            "deepseek-v4-pro": {
+              reasoning_options: [{ type: "toggle" }, { type: "effort", values: ["high", "max"] }],
+            },
+          },
+        },
+      },
+    })
+
+    expect(context["openai/gpt-5.4"]).toMatchObject({
+      reasoning: true,
+      limit: { context: 1_000_000, output: 128_000 },
+      cost: { input: 2.5, output: 15 },
+      variants: {
+        none: { reasoningEffort: "none" },
+        xhigh: { reasoningEffort: "xhigh" },
+      },
+    })
+    expect(context["deepseek/deepseek-v4-pro"]).toMatchObject({
+      variants: {
+        none: {
+          thinking: { type: "disabled" },
+          extra_body: { thinking: { type: "disabled" } },
+        },
+        high: {
+          reasoningEffort: "high",
+          thinking: { type: "enabled" },
+        },
+        max: { reasoningEffort: "max" },
+      },
+    })
+  })
+
+  test("fetches model context from models.dev", async () => {
+    const fetchImpl = (async (url: string | URL | Request) => {
+      expect(url).toBe(MODELS_DEV_CATALOG_URL)
+      return new Response(JSON.stringify({ models: { "openai/gpt-5": { reasoning: true } } }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    await expect(fetchModelContext(fetchImpl)).resolves.toEqual({
+      "openai/gpt-5": { reasoning: true },
+    })
   })
 
   test("parses OpenAI-compatible model response", () => {
@@ -184,11 +255,20 @@ describe("seamaid plugin helpers", () => {
 
   describe("applyModelContext", () => {
     test("adds limit, cost, and modalities for gpt-5.5", () => {
-      const models = applyModelContext({
-        "seamaid-openai": {
-          "openai/gpt-5.5": { name: "openai/gpt-5.5", provider: { npm: "@ai-sdk/openai" } },
+      const models = applyModelContext(
+        {
+          "seamaid-openai": {
+            "openai/gpt-5.5": { name: "openai/gpt-5.5", provider: { npm: "@ai-sdk/openai" } },
+          },
         },
-      })
+        {
+          "openai/gpt-5.5": {
+            limit: { context: 1_000_000, input: 872_000, output: 128_000 },
+            cost: { input: 5, output: 30 },
+            modalities: { input: ["text", "image"], output: ["text"] },
+          },
+        },
+      )
 
       expect(models["seamaid-openai"]["openai/gpt-5.5"]).toMatchObject({
         name: "openai/gpt-5.5",
@@ -200,9 +280,18 @@ describe("seamaid plugin helpers", () => {
     })
 
     test("adds limit, cost, and modalities for deepseek-v4-pro", () => {
-      const models = applyModelContext({
-        "seamaid-openai": { "deepseek/deepseek-v4-pro": { name: "deepseek/deepseek-v4-pro" } },
-      })
+      const models = applyModelContext(
+        {
+          "seamaid-openai": { "deepseek/deepseek-v4-pro": { name: "deepseek/deepseek-v4-pro" } },
+        },
+        {
+          "deepseek/deepseek-v4-pro": {
+            limit: { context: 1_000_000, input: 616_000, output: 384_000 },
+            cost: { input: 0.435, output: 0.87, cache_read: 0.003625 },
+            modalities: { input: ["text"], output: ["text"] },
+          },
+        },
+      )
 
       expect(models["seamaid-openai"]["deepseek/deepseek-v4-pro"]).toMatchObject({
         name: "deepseek/deepseek-v4-pro",
@@ -213,9 +302,18 @@ describe("seamaid plugin helpers", () => {
     })
 
     test("adds limit, cost, and modalities for deepseek-v4-flash", () => {
-      const models = applyModelContext({
-        "seamaid-openai": { "deepseek-v4-flash": { name: "deepseek-v4-flash" } },
-      })
+      const models = applyModelContext(
+        {
+          "seamaid-openai": { "deepseek-v4-flash": { name: "deepseek-v4-flash" } },
+        },
+        {
+          "deepseek-v4-flash": {
+            limit: { context: 1_000_000, input: 616_000, output: 384_000 },
+            cost: { input: 0.14, output: 0.28, cache_read: 0.0028 },
+            modalities: { input: ["text"], output: ["text"] },
+          },
+        },
+      )
 
       expect(models["seamaid-openai"]["deepseek-v4-flash"]).toMatchObject({
         name: "deepseek-v4-flash",
@@ -226,9 +324,18 @@ describe("seamaid plugin helpers", () => {
     })
 
     test("adds limit, cost, and modalities for glm-5.3-flash", () => {
-      const models = applyModelContext({
-        "seamaid-openai": { "glm-5.3-flash": { name: "glm-5.3-flash" } },
-      })
+      const models = applyModelContext(
+        {
+          "seamaid-openai": { "glm-5.3-flash": { name: "glm-5.3-flash" } },
+        },
+        {
+          "glm-5.3-flash": {
+            limit: { context: 1_048_576, input: 1_048_576, output: 131_072 },
+            cost: { input: 0.075, output: 0.25, cache_read: 0.015 },
+            modalities: { input: ["text", "image", "video", "pdf"], output: ["text"] },
+          },
+        },
+      )
 
       expect(models["seamaid-openai"]["glm-5.3-flash"]).toMatchObject({
         name: "glm-5.3-flash",
@@ -247,9 +354,12 @@ describe("seamaid plugin helpers", () => {
     })
 
     test("matches by substring without prefix", () => {
-      const models = applyModelContext({
-        "seamaid-openai": { "gpt-5.5": { name: "gpt-5.5" } },
-      })
+      const models = applyModelContext(
+        {
+          "seamaid-openai": { "gpt-5.5": { name: "gpt-5.5" } },
+        },
+        { "openai/gpt-5.5": { limit: { context: 1_000_000 } } },
+      )
 
       expect(models["seamaid-openai"]["gpt-5.5"]).toMatchObject({
         name: "gpt-5.5",
@@ -412,6 +522,7 @@ describe("cache helpers", () => {
   test("readModelsCache returns null when cache contains empty models", () => {
     const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
     const env = { SEAMAID_CACHE_DIR: dir }
+    mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, "seamaid-models.json"), JSON.stringify({ timestamp: Date.now(), data: {} }), "utf-8")
 
     expect(readModelsCache(env)).toBeNull()
@@ -433,6 +544,7 @@ describe("cache helpers", () => {
     const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
     const env = { SEAMAID_CACHE_DIR: dir }
     const file = join(dir, "seamaid-models.json")
+    mkdirSync(dir, { recursive: true })
     writeFileSync(file, JSON.stringify({ timestamp: Date.now(), data: {} }), "utf-8")
 
     writeModelsCache({}, env)
@@ -513,6 +625,59 @@ describe("cache helpers", () => {
     const result = await fetchSeamaidModelsCached(env, fetch)
     expect(result).toEqual({})
     expect(readModelsCache(env)).toBeNull()
+
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  test("readModelContextCache returns null when TTL is 0", () => {
+    expect(readModelContextCache({ SEAMAID_CACHE_TTL: "0" })).toBeNull()
+  })
+
+  test("writeModelContextCache and readModelContextCache round-trip", () => {
+    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const env = { SEAMAID_CACHE_DIR: dir }
+    const data = { "openai/gpt-5": { reasoning: true } }
+
+    writeModelContextCache(data, env)
+    expect(readModelContextCache(env)).toEqual(data)
+
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  test("fetchModelContextCached uses the shared cache settings", async () => {
+    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const env = { SEAMAID_CACHE_DIR: dir }
+    const data = { "openai/gpt-5": { reasoning: true } }
+    let fetchCalled = false
+    const fetchImpl = (async () => {
+      fetchCalled = true
+      return new Response(JSON.stringify({ models: data }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    expect(await fetchModelContextCached(env, fetchImpl)).toEqual(data)
+    expect(fetchCalled).toBe(true)
+
+    fetchCalled = false
+    const cached = await fetchModelContextCached(env, fetchImpl)
+    expect(cached).toEqual(data)
+    expect(fetchCalled).toBe(false)
+
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  test("fetchModelContextCached bypasses cache when TTL is 0", async () => {
+    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const env = { SEAMAID_CACHE_DIR: dir, SEAMAID_CACHE_TTL: "0" }
+    let fetchCount = 0
+    const fetchImpl = (async () => {
+      fetchCount += 1
+      return new Response(JSON.stringify({ models: { "openai/gpt-5": { reasoning: true } } }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    await fetchModelContextCached(env, fetchImpl)
+    await fetchModelContextCached(env, fetchImpl)
+    expect(fetchCount).toBe(2)
+    expect(readModelContextCache(env)).toBeNull()
 
     rmSync(dir, { recursive: true, force: true })
   })

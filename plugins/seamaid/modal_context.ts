@@ -1,345 +1,142 @@
-import type { ModelConfig, ModelLimit, ModelVariantConfig } from "@opencode/types"
+import type { ModelConfig, ModelVariantConfig } from "@opencode/types"
 
-type OpenCodeReasoningEffortVariant = ModelVariantConfig & {
-  reasoningEffort: "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
+export const MODELS_DEV_CATALOG_URL = "https://models.dev/catalog.json"
+
+type ModelsDevReasoningOption = {
+  type?: unknown
+  values?: unknown
 }
 
-const GPT_REASONING_VARIANTS = {
-  high: {
-    high: { reasoningEffort: "high" },
-  },
-  minimalLowMediumHigh: {
-    minimal: { reasoningEffort: "minimal" },
-    low: { reasoningEffort: "low" },
-    medium: { reasoningEffort: "medium" },
-    high: { reasoningEffort: "high" },
-  },
-  noneLowMediumHigh: {
-    none: { reasoningEffort: "none" },
-    low: { reasoningEffort: "low" },
-    medium: { reasoningEffort: "medium" },
-    high: { reasoningEffort: "high" },
-  },
-  noneLowMediumHighXhigh: {
-    none: { reasoningEffort: "none" },
-    low: { reasoningEffort: "low" },
-    medium: { reasoningEffort: "medium" },
-    high: { reasoningEffort: "high" },
-    xhigh: { reasoningEffort: "xhigh" },
-  },
-  lowMediumHighXhigh: {
-    low: { reasoningEffort: "low" },
-    medium: { reasoningEffort: "medium" },
-    high: { reasoningEffort: "high" },
-    xhigh: { reasoningEffort: "xhigh" },
-  },
-  mediumHighXhigh: {
-    medium: { reasoningEffort: "medium" },
-    high: { reasoningEffort: "high" },
-    xhigh: { reasoningEffort: "xhigh" },
-  },
-  noneLowMediumHighXhighMax: {
-    none: { reasoningEffort: "none" },
-    low: { reasoningEffort: "low" },
-    medium: { reasoningEffort: "medium" },
-    high: { reasoningEffort: "high" },
-    xhigh: { reasoningEffort: "xhigh" },
-    max: { reasoningEffort: "max" },
-  },
-} as const satisfies Record<string, Record<string, OpenCodeReasoningEffortVariant>>
+export type ModelsDevModel = ModelConfig & {
+  reasoning_options?: ModelsDevReasoningOption[]
+}
 
-const GROK_4_5_VARIANTS = {
-  none: {
-    reasoningEffort: "none",
-  },
-  low: {
-    reasoningEffort: "low",
-  },
-  medium: {
-    reasoningEffort: "medium",
-  },
-  high: {
-    reasoningEffort: "high",
-  },
-} as const satisfies Record<string, OpenCodeReasoningEffortVariant>
+export type ModelsDevCatalog = {
+  models?: Record<string, ModelsDevModel>
+  providers?: Record<string, { models?: Record<string, ModelsDevModel> }>
+}
 
-const DEEPSEEK_V4_LIMIT = {
-  context: 1_000_000,
-  input: 616_000,
-  output: 384_000,
-} as const satisfies ModelLimit
+export type ModelContext = Record<string, ModelConfig>
 
-const DEEPSEEK_V4_VARIANTS = {
-  none: {
-    thinking: { type: "disabled" },
-    extra_body: { thinking: { type: "disabled" } },
-  },
-  low: {
-    reasoningEffort: "low",
-    thinking: { type: "enabled" },
-    extra_body: { thinking: { type: "enabled" } },
-  },
-  medium: {
-    reasoningEffort: "medium",
-    thinking: { type: "enabled" },
-    extra_body: { thinking: { type: "enabled" } },
-  },
-  high: {
-    reasoningEffort: "high",
-    thinking: { type: "enabled" },
-    extra_body: { thinking: { type: "enabled" } },
-  },
-  xhigh: {
-    reasoningEffort: "xhigh",
-    thinking: { type: "enabled" },
-    extra_body: { thinking: { type: "enabled" } },
-  },
-  max: {
-    reasoningEffort: "max",
-    thinking: { type: "enabled" },
-    extra_body: { thinking: { type: "enabled" } },
-  },
-} as const satisfies Record<string, ModelVariantConfig>
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+}
 
-export default {
-  "gpt-5.6-sol": {
-    variants: GPT_REASONING_VARIANTS.noneLowMediumHighXhighMax,
-  },
-  "gpt-5.6-terra": {
-    variants: GPT_REASONING_VARIANTS.noneLowMediumHighXhighMax,
-  },
-  "gpt-5.6-luna": {
-    variants: GPT_REASONING_VARIANTS.noneLowMediumHighXhighMax,
-  },
-  "gpt-5.5": {
-    limit: {
-      context: 1_050_000,
-      output: 128_000,
-    },
-    cost: {
-      input: 5,
-      output: 30,
-      cache_read: 0.5,
-    },
-    modalities: {
-      input: ["text", "image"],
-      output: ["text"],
-    },
-    variants: GPT_REASONING_VARIANTS.noneLowMediumHighXhigh,
-  },
-  "grok-4.5": {
-    limit: {
-      context: 500_000,
-      output: 500_000,
-    },
-    cost: {
-      input: 2,
-      output: 6,
-    },
-    modalities: {
-      input: ["text"],
-      output: ["text"],
-    },
-    variants: GROK_4_5_VARIANTS,
-  },
-  "deepseek-v4-pro": {
-    reasoning: true,
-    tool_call: true,
-    interleaved: { field: "reasoning_content" },
-    limit: DEEPSEEK_V4_LIMIT,
-    cost: {
-      input: 0.435,
-      output: 0.87,
-      cache_read: 0.003625,
-    },
-    modalities: {
-      input: ["text"],
-      output: ["text"],
-    },
-    variants: DEEPSEEK_V4_VARIANTS,
-  },
-  "deepseek-v4-flash": {
-    reasoning: true,
-    tool_call: true,
-    interleaved: { field: "reasoning_content" },
-    limit: DEEPSEEK_V4_LIMIT,
-    cost: {
-      input: 0.14,
-      output: 0.28,
-      cache_read: 0.0028,
-    },
-    modalities: {
-      input: ["text"],
-      output: ["text"],
-    },
-    variants: DEEPSEEK_V4_VARIANTS,
-  },
-  "qwen3.6-plus": {
-    limit: {
-      context: 1_000_000,
-      input: 991_800,
-      output: 65_536,
-    },
-    cost: {
-      input: 0.5,
-      output: 3.0,
-      cache_read: 0.05,
-    },
-    modalities: {
-      input: ["text", "image", "video"],
-      output: ["text"],
-    },
-  },
-  "qwen3.7-max": {
-    reasoning: true,
-    tool_call: true,
-    limit: {
-      context: 1_000_000,
-      output: 65_536,
-    },
-    cost: {
-      input: 2.5,
-      output: 7.5,
-      cache_read: 0.5,
-    },
-    modalities: {
-      input: ["text"],
-      output: ["text"],
-    },
-  },
-  "qwen3.7-plus": {
-    reasoning: true,
-    tool_call: true,
-    limit: {
-      context: 1_000_000,
-      output: 64_000,
-    },
-    cost: {
-      input: 0.4,
-      output: 1.6,
-      cache_read: 0.08,
-    },
-    modalities: {
-      input: ["text", "image", "video"],
-      output: ["text"],
-    },
-  },
-  "qwen3.8-max": {
-    reasoning: true,
-    tool_call: true,
-    limit: {
-      context: 1_000_000,
-      output: 131_072,
-    },
-    cost: {
-      input: 2,
-      output: 6,
-      cache_read: 0.25,
-      cache_write: 2.5,
-    },
-    modalities: {
-      input: ["text", "image", "video"],
-      output: ["text"],
-    },
-  },
-  "gemini-3.5-flash": {
-    limit: {
-      context: 1_048_576,
-      input: 983_040,
-      output: 65_536,
-    },
-    cost: {
-      input: 1.5,
-      output: 9.0,
-      cache_read: 0.15,
-    },
-    modalities: {
-      input: ["text", "image", "video", "audio", "pdf"],
-      output: ["text"],
-    },
-  },
-  "glm-5.1": {
-    limit: {
-      context: 200_000,
-      input: 68_928,
-      output: 131_072,
-    },
-    cost: {
-      input: 1.4,
-      output: 4.4,
-      cache_read: 0.26,
-    },
-    modalities: {
-      input: ["text", "image", "pdf"],
-      output: ["text"],
-    },
-  },
-  "glm-5.2": {
-    limit: {
-      context: 1_000_000,
-      input: 872_000,
-      output: 128_000,
-    },
-    cost: {
-      input: 1.4,
-      output: 4.4,
-      cache_read: 0.26,
-    },
-    modalities: {
-      input: ["text"],
-      output: ["text"],
-    },
-  },
-  "glm-5.3": {
-    reasoning: true,
-    tool_call: true,
-    limit: {
-      context: 1_048_576,
-      input: 1_048_576,
-      output: 131_072,
-    },
-    cost: {
-      input: 1.4,
-      output: 4.4,
-      cache_read: 0.26,
-    },
-    modalities: {
-      input: ["text"],
-      output: ["text"],
-    },
-  },
-  "glm-5.3-flash": {
-    reasoning: true,
-    tool_call: true,
-    limit: {
-      context: 1_048_576,
-      input: 1_048_576,
-      output: 131_072,
-    },
-    cost: {
-      input: 0.075,
-      output: 0.25,
-      cache_read: 0.015,
-    },
-    modalities: {
-      input: ["text", "image", "video", "pdf"],
-      output: ["text"],
-    },
-  },
-  "kimi-k2.7-code": {
-    limit: {
-      context: 262_144,
-      input: 229_376,
-      output: 32_768,
-    },
-    cost: {
-      input: 0.95,
-      output: 4.0,
-      cache_read: 0.19,
-    },
-    modalities: {
-      input: ["text", "image"],
-      output: ["text"],
-    },
-  },
-} as const satisfies Record<string, ModelConfig>
+function reasoningEffortValues(model: ModelsDevModel): string[] {
+  const options = Array.isArray(model.reasoning_options) ? model.reasoning_options : []
+  const option = options.find((item: ModelsDevReasoningOption) => item.type === "effort")
+  const values: unknown[] = Array.isArray(option?.values) ? option.values : []
+
+  return [...new Set(values.filter((value: unknown): value is string => typeof value === "string"))]
+}
+
+function hasReasoningToggle(model: ModelsDevModel): boolean {
+  const options = Array.isArray(model.reasoning_options) ? model.reasoning_options : []
+  return options.some((item: ModelsDevReasoningOption) => item.type === "toggle")
+}
+
+function hasReasoningContentInterleaving(model: ModelsDevModel): boolean {
+  return (
+    typeof model.interleaved === "object" &&
+    model.interleaved !== null &&
+    !Array.isArray(model.interleaved) &&
+    model.interleaved.field === "reasoning_content"
+  )
+}
+
+function thinkingVariant(enabled: boolean): ModelVariantConfig {
+  return {
+    thinking: { type: enabled ? "enabled" : "disabled" },
+    extra_body: { thinking: { type: enabled ? "enabled" : "disabled" } },
+  }
+}
+
+function variantsFor(model: ModelsDevModel): Record<string, ModelVariantConfig> | undefined {
+  const values = reasoningEffortValues(model)
+  if (values.length === 0) return undefined
+
+  const variants = Object.fromEntries(
+    values.map((value) => [
+      value,
+      {
+        reasoningEffort: value,
+        ...(hasReasoningToggle(model) && hasReasoningContentInterleaving(model) ? thinkingVariant(true) : {}),
+      },
+    ]),
+  ) as Record<string, ModelVariantConfig>
+
+  if (hasReasoningToggle(model) && hasReasoningContentInterleaving(model)) {
+    variants.none = thinkingVariant(false)
+  }
+
+  return variants
+}
+
+function mergeModels(base: ModelsDevModel, provider: ModelsDevModel | undefined): ModelsDevModel {
+  if (!provider) return base
+
+  const merged = {
+    ...base,
+    ...provider,
+  }
+
+  if (base.limit !== undefined || provider.limit !== undefined) {
+    merged.limit = { ...base.limit, ...provider.limit }
+  }
+  if (base.cost !== undefined || provider.cost !== undefined) {
+    merged.cost = { ...base.cost, ...provider.cost }
+  }
+  if (base.modalities !== undefined || provider.modalities !== undefined) {
+    merged.modalities = { ...base.modalities, ...provider.modalities }
+  }
+
+  return merged
+}
+
+function contextForModel(model: ModelsDevModel): ModelConfig {
+  const context: ModelConfig = {}
+
+  if (model.reasoning !== undefined) context.reasoning = model.reasoning
+  if (model.temperature !== undefined) context.temperature = model.temperature
+  if (model.tool_call !== undefined) context.tool_call = model.tool_call
+  if (model.interleaved !== undefined) context.interleaved = model.interleaved
+  if (model.limit !== undefined) context.limit = model.limit
+  if (model.cost !== undefined) context.cost = model.cost
+  if (model.modalities !== undefined) context.modalities = model.modalities
+
+  const variants = variantsFor(model)
+  if (variants !== undefined) context.variants = variants
+
+  return context
+}
+
+function providerModel(catalog: ModelsDevCatalog, modelKey: string): ModelsDevModel | undefined {
+  const separator = modelKey.indexOf("/")
+  if (separator < 1) return undefined
+
+  const providerID = modelKey.slice(0, separator)
+  const modelID = modelKey.slice(separator + 1)
+  return catalog.providers?.[providerID]?.models?.[modelID]
+}
+
+export function parseModelContext(payload: unknown): ModelContext {
+  const catalog = asRecord(payload) as ModelsDevCatalog
+  const models = asRecord(catalog.models) as Record<string, ModelsDevModel>
+  const context: ModelContext = {}
+
+  for (const [modelKey, model] of Object.entries(models)) {
+    if (!model || typeof model !== "object") continue
+    context[modelKey] = contextForModel(mergeModels(model, providerModel(catalog, modelKey)))
+  }
+
+  return context
+}
+
+export async function fetchModelContext(fetchImpl: typeof fetch): Promise<ModelContext> {
+  const response = await fetchImpl(MODELS_DEV_CATALOG_URL)
+  if (!response.ok) {
+    throw new Error(`Models.dev request failed: ${response.status} ${response.statusText}`)
+  }
+
+  return parseModelContext(await response.json())
+}
