@@ -5,7 +5,7 @@ import type { ModelConfig, OpenCodeConfig, ProviderConfig } from "@opencode/type
 import { createSeamaidCommands } from "./commands.js"
 import { fetchModelContext, type ModelContext } from "./modal_context.js"
 
-type OpenAIModelsResponse = {
+export type OpenAIModelsResponse = {
   data?: Array<{
     id?: unknown
     supported_endpoint_types?: unknown
@@ -171,16 +171,25 @@ function baseURLRoot(baseURL: string): string {
   return normalizeBaseURL(baseURL).replace(/\/v1(?:beta)?$/, "")
 }
 
-function modelProvider(endpointType: string, modelID: string): ModelConfig["provider"] {
+function modelProvider(endpointType: string, modelID: string, env: Env = process.env): ModelConfig["provider"] {
+  if (endpointType !== "openai") return undefined
+
+  // SEAMAID_OPENAI_WIRE_API forces the wire API for all OpenAI-endpoint models:
+  // "responses" -> @ai-sdk/openai, "chat" -> @ai-sdk/openai-compatible,
+  // anything else keeps the default codex/gpt sniffing below.
+  const wireAPI = env.SEAMAID_OPENAI_WIRE_API
+  if (wireAPI === "responses") return { npm: OPENAI_NPM }
+  if (wireAPI === "chat") return undefined
+
   const lowerModelID = modelID.toLowerCase()
-  if (endpointType === "openai" && (lowerModelID.includes("codex") || lowerModelID.includes("gpt"))) {
+  if (lowerModelID.includes("codex") || lowerModelID.includes("gpt")) {
     return { npm: OPENAI_NPM }
   }
 
   return undefined
 }
 
-export function parseModels(payload: OpenAIModelsResponse): ProviderModels {
+export function parseModels(payload: OpenAIModelsResponse, env: Env = process.env): ProviderModels {
   const providers: ProviderModels = {}
 
   for (const item of payload.data ?? []) {
@@ -191,7 +200,7 @@ export function parseModels(payload: OpenAIModelsResponse): ProviderModels {
       if (typeof endpointType !== "string") continue
       const providerID = PROVIDER_ID_BY_ENDPOINT_TYPE[endpointType]
       if (providerID === undefined) continue
-      const provider = modelProvider(endpointType, item.id)
+      const provider = modelProvider(endpointType, item.id, env)
 
       providers[providerID] ??= {}
       providers[providerID][item.id] = {

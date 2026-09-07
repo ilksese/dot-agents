@@ -17,6 +17,7 @@ import {
   readModelContextCache,
   writeModelsCache,
   writeModelContextCache,
+  type OpenAIModelsResponse,
 } from "./index"
 import { createSeamaidCommands } from "./commands"
 import { fetchModelContext, MODELS_DEV_CATALOG_URL, parseModelContext } from "./modal_context"
@@ -147,20 +148,53 @@ describe("seamaid plugin helpers", () => {
 
   test("parses OpenAI-compatible model response", () => {
     expect(
-      parseModels({
-        data: [
-          { id: "gpt-4o", supported_endpoint_types: ["openai"] },
-          { id: "claude-3-5-sonnet", supported_endpoint_types: ["anthropic"] },
-          { id: "", supported_endpoint_types: ["openai"] },
-          { id: 123, supported_endpoint_types: ["openai"] },
-        ],
-      }),
+      parseModels(
+        {
+          data: [
+            { id: "gpt-4o", supported_endpoint_types: ["openai"] },
+            { id: "claude-3-5-sonnet", supported_endpoint_types: ["anthropic"] },
+            { id: "", supported_endpoint_types: ["openai"] },
+            { id: 123, supported_endpoint_types: ["openai"] },
+          ],
+        },
+        {},
+      ),
     ).toEqual({
       "seamaid-openai": {
         "gpt-4o": { name: "gpt-4o", provider: { npm: "@ai-sdk/openai" } },
       },
       "seamaid-anthropic": {
         "claude-3-5-sonnet": { name: "claude-3-5-sonnet" },
+      },
+    })
+  })
+
+  test("SEAMAID_OPENAI_WIRE_API overrides the openai wire API", () => {
+    const payload: OpenAIModelsResponse = {
+      data: [
+        { id: "gpt-4o", supported_endpoint_types: ["openai"] },
+        { id: "zai/glm-5.3-flash", supported_endpoint_types: ["openai"] },
+      ],
+    }
+
+    expect(parseModels(payload, { SEAMAID_OPENAI_WIRE_API: "responses" })).toEqual({
+      "seamaid-openai": {
+        "gpt-4o": { name: "gpt-4o", provider: { npm: "@ai-sdk/openai" } },
+        "zai/glm-5.3-flash": { name: "zai/glm-5.3-flash", provider: { npm: "@ai-sdk/openai" } },
+      },
+    })
+
+    expect(parseModels(payload, { SEAMAID_OPENAI_WIRE_API: "chat" })).toEqual({
+      "seamaid-openai": {
+        "gpt-4o": { name: "gpt-4o" },
+        "zai/glm-5.3-flash": { name: "zai/glm-5.3-flash" },
+      },
+    })
+
+    expect(parseModels(payload, { SEAMAID_OPENAI_WIRE_API: "default" })).toEqual({
+      "seamaid-openai": {
+        "gpt-4o": { name: "gpt-4o", provider: { npm: "@ai-sdk/openai" } },
+        "zai/glm-5.3-flash": { name: "zai/glm-5.3-flash" },
       },
     })
   })
@@ -211,9 +245,12 @@ describe("seamaid plugin helpers", () => {
 
   test("parseModels does not apply model context", () => {
     expect(
-      parseModels({
-        data: [{ id: "gpt-4o-mini", supported_endpoint_types: ["openai"] }],
-      }),
+      parseModels(
+        {
+          data: [{ id: "gpt-4o-mini", supported_endpoint_types: ["openai"] }],
+        },
+        {},
+      ),
     ).toEqual({
       "seamaid-openai": {
         "gpt-4o-mini": { name: "gpt-4o-mini", provider: { npm: "@ai-sdk/openai" } },
@@ -223,13 +260,16 @@ describe("seamaid plugin helpers", () => {
 
   test("maps every supported endpoint to its seamaid provider", () => {
     expect(
-      parseModels({
-        data: [
-          { id: "anthropic/claude-sonnet", supported_endpoint_types: ["anthropic"] },
-          { id: "google/gemini-3-pro", supported_endpoint_types: ["google"] },
-          { id: "multi/gpt-5.5", supported_endpoint_types: ["openai", "google", "anthropic"] },
-        ],
-      }),
+      parseModels(
+        {
+          data: [
+            { id: "anthropic/claude-sonnet", supported_endpoint_types: ["anthropic"] },
+            { id: "google/gemini-3-pro", supported_endpoint_types: ["google"] },
+            { id: "multi/gpt-5.5", supported_endpoint_types: ["openai", "google", "anthropic"] },
+          ],
+        },
+        {},
+      ),
     ).toEqual({
       "seamaid-anthropic": {
         "anthropic/claude-sonnet": { name: "anthropic/claude-sonnet" },
