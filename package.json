@@ -28,7 +28,11 @@
     "prepublishOnly": "pnpm run build"
   },
   "files": [
-    "dist/"
+    "dist/",
+    "agents/",
+    "commands/",
+    "plugins/",
+    "skills/"
   ],
   "devDependencies": {
     "@types/node": "22.20.0",
