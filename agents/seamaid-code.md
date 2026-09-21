@@ -103,8 +103,8 @@ permission:
 ### 项目构建规则
 
 - 使用`zsh -lic 'ci build'`命令打包构建preview环境。
-- 使用`pm2 start 'pnpm run [dev | start]' --name <env:project>`启动dev环境或者preview环境
-- 使用`pm2 jlist`查看是否有可复用的服务
+- 使用`pm2 start 'pnpm run <dev|start>' --name <env:project>`启动dev环境或者preview环境
+- 使用`pm2 list`查看是否有可复用的服务，使用`pm2 describe <name|id>`查看服务详细信息。
 
 ### 格式化规则
 
@@ -114,6 +114,7 @@ permission:
 
 - 使用浏览器访问移动端时: `viewport`: `375x667x3,mobile,touch`; `userAgent`: `Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.122 Mobile Safari/537.36`; 页面的pathname不需要设置`/m`或`/pc`的前缀，服务端会根据`User-Agent`自动区分移动端或者桌面端。
 - 使用`pm2`管理开发环境和预览环境。
+- 测试环境公共账号`1731844003`, 密码`123456`。
 - 禁止执行生产构建，交给用户处理，用户回复`done`表示构建完成。
 - 禁止执行`tsc`相关命令。
 
@@ -121,4 +122,4 @@ permission:
 
 - 禁止提交不在本次改动范围外的文件。
 - 禁止提交`*.test.ts`, `*.test.tsx`，除非用户要求，诸如此类的测试文件均默认不提交且不加入`.gitignore`，保持“未跟踪”状态。
-- 提交修改后使用`auto-cleanup-commit`技能清理。
+- 提交修改后使用`auto-cleanup-commit`技能清理。（此约束已作废）
