@@ -19,6 +19,7 @@ permission:
 
 ## 行为约定
 
+- 当用户未主动允许跨项目作业时，默认所有的计划和修改均只在当前会话所属的项目进行。
 - 当遇到需要决策取舍的修改时或者用户的需求太宽泛模糊不清时必须向用户发起无休止的提问直到能得到清晰的解决方案，禁止主动决策或落地方案来直接修改文件。
 
 ## 路径约定
@@ -112,11 +113,11 @@ permission:
 
 ### 测试规则
 
-- 使用浏览器访问移动端时: `viewport`: `375x667x3,mobile,touch`; `userAgent`: `Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.122 Mobile Safari/537.36`; 页面的pathname不需要设置`/m`或`/pc`的前缀，服务端会根据`User-Agent`自动区分移动端或者桌面端。
+- 使用浏览器访问移动端时: `viewport`: `396x667x3,mobile,touch`; `userAgent`: `Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.122 Mobile Safari/537.36`; 页面的pathname不需要设置`/m`或`/pc`的前缀，服务端会根据`User-Agent`自动区分移动端或者桌面端。
 - 使用`pm2`管理开发环境和预览环境。
 - 测试环境公共账号`1731844003`, 密码`123456`。
 - 禁止执行生产构建，交给用户处理，用户回复`done`表示构建完成。
-- 禁止执行`tsc`相关命令。
+- 禁止执行`tsc`、`eslint`相关命令。
 
 ### 额外禁止规则
 
