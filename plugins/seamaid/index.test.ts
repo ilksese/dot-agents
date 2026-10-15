@@ -2,6 +2,7 @@ import { describe, expect, test, afterEach } from "bun:test"
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs"
 import { join } from "path"
 import { tmpdir } from "os"
+import { randomUUID } from "crypto"
 import {
   fetchSeamaidModels,
   fetchSeamaidModelsCached,
@@ -10,7 +11,7 @@ import {
   modelsEndpoint,
   normalizeBaseURL,
   parseModels,
-  patchSeamaidProvider,
+  buildSeamaidProviders,
   applyModelContext,
   getCacheTTL,
   readModelsCache,
@@ -19,56 +20,37 @@ import {
   writeModelContextCache,
   type OpenAIModelsResponse,
 } from "./index"
-import { createSeamaidCommands } from "./commands"
+import { loadSeamaidCommands, mergeSeamaidCommands } from "./commands"
+import { fillEgoUrls } from "../../utils/v2"
 import { fetchModelContext, MODELS_DEV_CATALOG_URL, parseModelContext } from "./modal_context"
 
 describe("seamaid plugin helpers", () => {
-  test("adds builtin commands with the project name", () => {
-    const cfg = {}
+  test("loads builtin commands with v2 fields and the project name", () => {
+    const commands = loadSeamaidCommands("dot-agents")
 
-    createSeamaidCommands(cfg, "dot-agents")
-
-    expect(cfg).toEqual({
-      command: {
-        "ego:test-ui": {
-          description: "使用ego浏览器进行UI冒烟测试",
-          template:
-            "<task>\n使用ego浏览器对UI进行冒烟测试，关注范围：文字字体、文字颜色、文字盘版、元素尺寸、元素可交互区域、图标大小、图标颜色、图片尺寸、背景色、内外边距、文档流\n</task>\n<user-request>\n$ARGUMENTS\n</user-request>",
-        },
-        "todo:defects": {
-          description: "List defects in the current repository.",
-          model: "seamaid-openai/ccodex-gpt-5.6-luna",
-          subtask: true,
-          variant: "low",
-          template:
-            "<task>\nUse the todo-cli tools to get all the pending defects related to me in project dot-agents.\n</task>\n<user-request>\n$ARGUMENTS\n</user-request>",
-        },
-        "todo:refresh": {
-          description: "Refresh the todo session and GET_USER_ACTION.",
-          model: "seamaid-openai/ccodex-gpt-5.6-luna",
-          subtask: true,
-          variant: "low",
-          template:
-            "<task>\nFirst validate the existing local .todorc session and env.GET_USER_ACTION by running todo-cli for project dot-agents. If authentication succeeds, report that the session and GET_USER_ACTION are still valid and do not modify .todorc. Only when the result clearly shows an invalid or expired session/action (not a network or unrelated data error), use ego-browser to open https://todo.jinuotec.com/demand?project=dot-agents with the authenticated browser session, extract the current todo.jinuotec.com session cookie and getUser Next.js server action, then update .todorc session and env.GET_USER_ACTION without exposing the session value. Verify the refresh by running todo-cli again.\n</task>\n<user-request>\n$ARGUMENTS\n</user-request>",
-        },
-        "todo:tasks": {
-          description: "List tasks in the current repository.",
-          model: "seamaid-openai/ccodex-gpt-5.6-luna",
-          subtask: true,
-          variant: "low",
-          template:
-            "<task>\nUse the todo-cli tools to get all the pending tasks related to me in project dot-agents.\n</task>\n<user-request>\n$ARGUMENTS\n</user-request>",
-        },
-      },
+    expect(commands["seamaid:todo-defects"]).toMatchObject({
+      description: "List defects in the current repository.",
+      subagent: true,
     })
+    expect(commands["seamaid:todo-defects"].template).toContain("project dot-agents")
+    expect(commands["seamaid:ego-test-ui"].template).toContain("<figma-url>")
+    expect(commands["seamaid:todo-defects"]).not.toHaveProperty("subtask")
   })
 
-  test("does not overwrite user todo command", () => {
-    const cfg = { command: { "todo:tasks": { template: "custom" } } }
+  test("does not overwrite a user command", () => {
+    const commands = mergeSeamaidCommands(loadSeamaidCommands("dot-agents"), {
+      "seamaid:todo-tasks": { template: "custom" },
+    })
 
-    createSeamaidCommands(cfg, "dot-agents")
+    expect(commands["seamaid:todo-tasks"]).toEqual({ template: "custom" })
+  })
 
-    expect(cfg.command["todo:tasks"]).toEqual({ template: "custom" })
+  test("fills ego test URLs from the command arguments", () => {
+    const template = "<figma-url>\n</figma-url>\n<browser-url>\n</browser-url>"
+
+    expect(fillEgoUrls(template, "https://www.figma.com/design/abc http://127.0.0.1:3000/page")).toBe(
+      "<figma-url>\nhttps://www.figma.com/design/abc\n</figma-url>\n<browser-url>\nhttp://127.0.0.1:3000/page\n</browser-url>",
+    )
   })
 
   test("normalizes trailing slashes from base URL", () => {
@@ -412,11 +394,9 @@ describe("seamaid plugin helpers", () => {
     })
   })
 
-  test("patches provider config with fetched models", () => {
-    const cfg = {}
-
-    patchSeamaidProvider(
-      cfg,
+  test("builds v2 providers from fetched models", () => {
+    const providers = buildSeamaidProviders(
+      {},
       {
         "seamaid-openai": { "seamaid-model": { name: "seamaid-model" } },
       },
@@ -426,87 +406,140 @@ describe("seamaid plugin helpers", () => {
       },
     )
 
-    expect(cfg).toEqual({
-      provider: {
+    expect(providers).toEqual([
+      {
+        id: "seamaid-openai",
+        name: "Seamaid OpenAI",
+        activation: "enabled",
+        package: "aisdk:@ai-sdk/openai-compatible",
+        settings: { baseURL: "https://seamaid.example/v1", apiKey: "secret" },
+        models: [
+          {
+            id: "seamaid-model",
+            modelID: "seamaid-model",
+            providerID: "seamaid-openai",
+            name: "seamaid-model",
+            capabilities: { tools: true, input: ["text"], output: ["text"] },
+            variants: [],
+            cost: [],
+            limit: { context: 200_000, output: 32_000 },
+            compatibility: { supportsPromptCacheKey: true },
+            status: "active",
+            enabled: true,
+            time: { released: 0 },
+          },
+        ],
+      },
+      {
+        id: "seamaid-google",
+        name: "Seamaid Google",
+        activation: "enabled",
+        package: "aisdk:@ai-sdk/google",
+        settings: { baseURL: "https://seamaid.example/v1beta", apiKey: "secret" },
+        models: [],
+      },
+      {
+        id: "seamaid-anthropic",
+        name: "Seamaid Anthropic",
+        activation: "enabled",
+        package: "aisdk:@ai-sdk/anthropic",
+        settings: { baseURL: "https://seamaid.example/v1", apiKey: "secret" },
+        models: [],
+      },
+    ])
+  })
+
+  test("fills required cache prices when models.dev omits cache_write", () => {
+    const [provider] = buildSeamaidProviders(
+      {},
+      {
         "seamaid-openai": {
-          npm: "@ai-sdk/openai-compatible",
-          name: "Seamaid OpenAI",
-          options: {
-            baseURL: "https://seamaid.example/v1",
-            apiKey: "secret",
-            setCacheKey: true,
+          partial: {
+            name: "partial",
+            cost: {
+              input: 0.435,
+              output: 0.87,
+              cache_read: 0.003625,
+              context_over_200k: { input: 1, output: 2, cache_read: 0.1 },
+            },
           },
-          models: {
-            "seamaid-model": { name: "seamaid-model" },
+          priced: {
+            name: "priced",
+            cost: { input: 1, output: 2, cache_read: 0.1, cache_write: 0.2 },
           },
-        },
-        "seamaid-google": {
-          npm: "@ai-sdk/google",
-          name: "Seamaid Google",
-          options: { baseURL: "https://seamaid.example/v1beta", apiKey: "secret", setCacheKey: true },
-          models: {},
-        },
-        "seamaid-anthropic": {
-          npm: "@ai-sdk/anthropic",
-          name: "Seamaid Anthropic",
-          options: { baseURL: "https://seamaid.example/v1", apiKey: "secret", setCacheKey: true },
-          models: {},
+          bare: { name: "bare", cost: { input: 2.5, output: 15 } },
         },
       },
-    })
+      {},
+    )
+
+    expect(provider.models.map((model) => model.cost)).toEqual([
+      [
+        { input: 0.435, output: 0.87, cache: { read: 0.003625, write: 0 } },
+        {
+          tier: { type: "context", size: 200_000 },
+          input: 1,
+          output: 2,
+          cache: { read: 0.1, write: 0 },
+        },
+      ],
+      [{ input: 1, output: 2, cache: { read: 0.1, write: 0.2 } }],
+      [{ input: 2.5, output: 15, cache: { read: 0, write: 0 } }],
+    ])
   })
 
   test("preserves existing provider fields and models when fetch returns no models", () => {
-    const cfg = {
-      provider: {
+    const existingModel = {
+      id: "existing",
+      modelID: "existing",
+      providerID: "seamaid-openai",
+      name: "Existing",
+      capabilities: { tools: true, input: ["text"], output: ["text"] },
+      variants: [],
+      cost: [],
+      limit: { context: 1, output: 1 },
+      compatibility: { supportsPromptCacheKey: true as const },
+      status: "active" as const,
+      enabled: true as const,
+      time: { released: 0 },
+    }
+    const [provider] = buildSeamaidProviders(
+      {
         "seamaid-openai": {
           name: "Custom Seamaid",
-          options: {
-            baseURL: "https://custom.example/v1",
-            headers: {
-              "X-Test": "1",
-            },
-          },
-          models: {
-            existing: { name: "Existing" },
-          },
+          settings: { baseURL: "https://custom.example/v1" },
+          headers: { "X-Test": "1" },
+          models: [existingModel],
         },
       },
-    }
+      {},
+      {},
+    )
 
-    patchSeamaidProvider(cfg, {}, {})
-
-    expect(cfg.provider["seamaid-openai"]).toEqual({
-      npm: "@ai-sdk/openai-compatible",
+    expect(provider).toEqual({
+      id: "seamaid-openai",
+      package: "aisdk:@ai-sdk/openai-compatible",
       name: "Custom Seamaid",
-      options: {
+      activation: "enabled",
+      settings: {
         baseURL: "https://custom.example/v1",
-        headers: {
-          "X-Test": "1",
-        },
         apiKey: "{env:SEAMAID_API_KEY}",
-        setCacheKey: true,
       },
-      models: {
-        existing: { name: "Existing" },
-      },
+      headers: { "X-Test": "1" },
+      models: [existingModel],
     })
   })
 
   test("replaces env placeholders with runtime env values", () => {
-    const cfg = {
-      provider: {
+    const [provider] = buildSeamaidProviders(
+      {
         "seamaid-openai": {
-          options: {
+          settings: {
             baseURL: "{env:SEAMAID_BASE_URL}",
             apiKey: "{env:SEAMAID_API_KEY}",
           },
         },
       },
-    }
-
-    patchSeamaidProvider(
-      cfg,
       {
         "seamaid-openai": { live: { name: "live" } },
       },
@@ -516,11 +549,11 @@ describe("seamaid plugin helpers", () => {
       },
     )
 
-    expect(cfg.provider["seamaid-openai"].options).toEqual({
+    expect(provider.settings).toEqual({
       baseURL: "https://seamaid.example/v1",
       apiKey: "secret",
-      setCacheKey: true,
     })
+    expect(provider.models[0]?.compatibility.supportsPromptCacheKey).toBe(true)
   })
 })
 
@@ -554,13 +587,13 @@ describe("cache helpers", () => {
   })
 
   test("readModelsCache returns null when cache file does not exist", () => {
-    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const dir = join(tmpdir(), `seamaid-test-${randomUUID()}`)
     expect(readModelsCache({ SEAMAID_CACHE_DIR: dir })).toBeNull()
     rmSync(dir, { recursive: true, force: true })
   })
 
   test("readModelsCache returns null when cache contains empty models", () => {
-    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const dir = join(tmpdir(), `seamaid-test-${randomUUID()}`)
     const env = { SEAMAID_CACHE_DIR: dir }
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, "seamaid-models.json"), JSON.stringify({ timestamp: Date.now(), data: {} }), "utf-8")
@@ -571,7 +604,7 @@ describe("cache helpers", () => {
   })
 
   test("writeModelsCache does not write empty models", () => {
-    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const dir = join(tmpdir(), `seamaid-test-${randomUUID()}`)
     const env = { SEAMAID_CACHE_DIR: dir }
 
     writeModelsCache({}, env)
@@ -581,7 +614,7 @@ describe("cache helpers", () => {
   })
 
   test("writeModelsCache removes a stale empty cache file", () => {
-    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const dir = join(tmpdir(), `seamaid-test-${randomUUID()}`)
     const env = { SEAMAID_CACHE_DIR: dir }
     const file = join(dir, "seamaid-models.json")
     mkdirSync(dir, { recursive: true })
@@ -594,7 +627,7 @@ describe("cache helpers", () => {
   })
 
   test("writeModelsCache and readModelsCache round-trip", () => {
-    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const dir = join(tmpdir(), `seamaid-test-${randomUUID()}`)
     const env = { SEAMAID_CACHE_DIR: dir }
     const data = { "seamaid-openai": { "test-model": { name: "test-model" } } }
 
@@ -606,7 +639,7 @@ describe("cache helpers", () => {
   })
 
   test("readModelsCache returns null when cache is expired", () => {
-    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const dir = join(tmpdir(), `seamaid-test-${randomUUID()}`)
     const env = { SEAMAID_CACHE_DIR: dir, SEAMAID_CACHE_TTL: "1" }
     const data = { "seamaid-openai": { "test-model": { name: "test-model" } } }
 
@@ -619,7 +652,7 @@ describe("cache helpers", () => {
   })
 
   test("fetchSeamaidModelsCached returns cached models on cache hit", async () => {
-    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const dir = join(tmpdir(), `seamaid-test-${randomUUID()}`)
     const env = { SEAMAID_CACHE_DIR: dir }
     const data = { "seamaid-openai": { "cached-model": { name: "cached-model" } } }
 
@@ -636,7 +669,7 @@ describe("cache helpers", () => {
   })
 
   test("fetchSeamaidModelsCached fetches and caches on cache miss", async () => {
-    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const dir = join(tmpdir(), `seamaid-test-${randomUUID()}`)
     const env = { SEAMAID_CACHE_DIR: dir, SEAMAID_BASE_URL: "https://seamaid.example/v1", SEAMAID_API_KEY: "secret" }
     let fetchCalled = false
 
@@ -659,7 +692,7 @@ describe("cache helpers", () => {
   })
 
   test("fetchSeamaidModelsCached does not cache an empty fetch result", async () => {
-    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const dir = join(tmpdir(), `seamaid-test-${randomUUID()}`)
     const env = { SEAMAID_CACHE_DIR: dir }
 
     const result = await fetchSeamaidModelsCached(env, fetch)
@@ -674,7 +707,7 @@ describe("cache helpers", () => {
   })
 
   test("writeModelContextCache and readModelContextCache round-trip", () => {
-    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const dir = join(tmpdir(), `seamaid-test-${randomUUID()}`)
     const env = { SEAMAID_CACHE_DIR: dir }
     const data = { "openai/gpt-5": { reasoning: true } }
 
@@ -685,7 +718,7 @@ describe("cache helpers", () => {
   })
 
   test("fetchModelContextCached uses the shared cache settings", async () => {
-    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const dir = join(tmpdir(), `seamaid-test-${randomUUID()}`)
     const env = { SEAMAID_CACHE_DIR: dir }
     const data = { "openai/gpt-5": { reasoning: true } }
     let fetchCalled = false
@@ -706,7 +739,7 @@ describe("cache helpers", () => {
   })
 
   test("fetchModelContextCached bypasses cache when TTL is 0", async () => {
-    const dir = join(tmpdir(), `seamaid-test-${Date.now()}`)
+    const dir = join(tmpdir(), `seamaid-test-${randomUUID()}`)
     const env = { SEAMAID_CACHE_DIR: dir, SEAMAID_CACHE_TTL: "0" }
     let fetchCount = 0
     const fetchImpl = (async () => {

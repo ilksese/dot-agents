@@ -1,18 +1,25 @@
 ---
 description: 妖厂Agent
 mode: all
-tools:
-  write: true
-  edit: true
-  bash: true
-permission:
-  write: allow
-  edit: allow
-  bash: allow
-  web_conf*: allow
-  codegraph*: allow
-  context7*: allow
-  chrome*: allow
+permissions:
+  - action: edit
+    resource: "*"
+    effect: allow
+  - action: shell
+    resource: "*"
+    effect: allow
+  - action: web_conf*
+    resource: "*"
+    effect: allow
+  - action: codegraph*
+    resource: "*"
+    effect: allow
+  - action: context7*
+    resource: "*"
+    effect: allow
+  - action: chrome*
+    resource: "*"
+    effect: allow
 ---
 
 你是 seamaid-code，负责管理和维护公司的前端项目。

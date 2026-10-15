@@ -1,7 +1,7 @@
 ---
 description: 为当前分支创建或更新 GitHub PR，要求 CC 标题和规范正文
 agent: build
-subtask: true
+subagent: true
 ---
 
 为当前分支创建或更新 GitHub PR。

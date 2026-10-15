@@ -54,10 +54,7 @@ test("sync with no selectors copies every resource type", () => {
   assert.ok(fs.existsSync(path.join(target, "skills", "explain-code")))
 
   const config = JSON.parse(fs.readFileSync(path.join(target, "opencode.jsonc"), "utf-8"))
-  assert.deepEqual(config.plugin, [
-    path.join(root, "plugins", "kumo", "index.ts"),
-    path.join(root, "plugins", "seamaid", "index.ts"),
-  ])
+  assert.deepEqual(config.plugins, [path.join(root, "plugins", "kumo"), path.join(root, "plugins", "seamaid")])
 })
 
 test("sync supports all per resource type and dry-run avoids writes", () => {
@@ -67,25 +64,31 @@ test("sync supports all per resource type and dry-run avoids writes", () => {
 
   assert.equal(result.status, 0, result.stderr)
   assert.match(result.stdout, /Config:/)
-  assert.match(result.stdout, /plugins\/seamaid\/index\.ts/)
+  assert.match(result.stdout, /plugins\/seamaid"/)
+  assert.doesNotMatch(result.stdout, /plugins\/seamaid\/index\.ts/)
   assert.match(result.stderr, /Not found: skill missing-skill/)
   assert.equal(fs.existsSync(target), false)
 })
 
-test("sync plugin skips existing matching plugin path", () => {
+test("sync plugin rewrites a legacy index file path to the plugin directory", () => {
   resetTarget()
   fs.mkdirSync(target, { recursive: true })
 
-  const pluginPath = path.join(root, "plugins", "seamaid", "index.ts")
+  const pluginDir = path.join(root, "plugins", "seamaid")
   fs.writeFileSync(
     path.join(target, "opencode.jsonc"),
-    JSON.stringify({ $schema: "https://opencode.ai/config.json", plugin: [pluginPath] }, null, 2) + "\n",
+    JSON.stringify(
+      { $schema: "https://opencode.ai/config.json", plugin: [path.join(pluginDir, "index.ts")] },
+      null,
+      2,
+    ) + "\n",
   )
 
   const result = runCli(["sync", "--plugin", "seamaid", "--target", "test/.opencode"])
 
   assert.equal(result.status, 0, result.stderr)
   const config = JSON.parse(fs.readFileSync(path.join(target, "opencode.jsonc"), "utf-8"))
-  assert.deepEqual(config.plugin, [pluginPath])
+  assert.deepEqual(config.plugins, [pluginDir])
+  assert.equal(config.plugin, undefined)
   assert.equal(fs.existsSync(path.join(target, "plugins", "seamaid")), false)
 })

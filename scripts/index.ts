@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process"
 import { createInterface } from "node:readline"
 import { Command } from "commander"
 import { parse as parseJsonc } from "jsonc-parser"
-import type { OpenCodeConfig } from "@opencode/types"
+import type { OpenCodeConfig, PluginConfig } from "@opencode/types"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -40,7 +40,7 @@ type PluginConfigSync = {
   configPath: string
   plugins: string[]
   newPlugins: string[]
-  mergedPlugin: NonNullable<OpenCodeConfig["plugin"]>
+  mergedPlugins: NonNullable<OpenCodeConfig["plugins"]>
   existingPaths: Set<string>
 }
 
@@ -249,35 +249,28 @@ function discoverPlugins(pluginsDir: string): string[] {
   for (const entry of entries) {
     if (!entry.isDirectory()) continue
     if (EXCLUDED_FILES.has(entry.name)) continue
-
-    for (const ext of [".js", ".ts"]) {
-      const indexPath = path.join(pluginsDir, entry.name, `index${ext}`)
-      if (fs.existsSync(indexPath)) {
-        plugins.push(path.resolve(indexPath))
-        break
-      }
-    }
+    const pluginDir = loadablePluginDirectory(path.join(pluginsDir, entry.name))
+    if (pluginDir) plugins.push(pluginDir)
   }
 
   return plugins
 }
 
+function loadablePluginDirectory(pluginDir: string): string | undefined {
+  for (const ext of [".js", ".ts"]) {
+    if (fs.existsSync(path.join(pluginDir, `index${ext}`))) return path.resolve(pluginDir)
+  }
+  return undefined
+}
+
 function discoverSelectedPlugins(requested: string[] | undefined): { matched: string[]; missing: string[] } {
   const pluginsDir = path.join(projectRoot, "plugins")
   const { matched, missing } = selectedNames(RESOURCE_TYPES[2], requested)
-  const plugins = matched
-    .map((name) => {
-      for (const ext of [".js", ".ts"]) {
-        const indexPath = path.join(pluginsDir, name, `index${ext}`)
-        if (fs.existsSync(indexPath)) return path.resolve(indexPath)
-      }
-      return undefined
-    })
-    .filter((plugin): plugin is string => typeof plugin === "string")
-
-  const pluginsWithoutIndex = matched.filter(
-    (name) => !plugins.some((plugin) => path.dirname(plugin) === path.resolve(pluginsDir, name)),
-  )
+  const plugins = matched.flatMap((name) => {
+    const pluginDir = loadablePluginDirectory(path.join(pluginsDir, name))
+    return pluginDir ? [pluginDir] : []
+  })
+  const pluginsWithoutIndex = matched.filter((name) => !plugins.includes(path.resolve(pluginsDir, name)))
   return { matched: plugins, missing: [...missing, ...pluginsWithoutIndex] }
 }
 
@@ -295,27 +288,77 @@ function readConfig(configPath: string): OpenCodeConfig {
   return parseJsonc(raw) as OpenCodeConfig
 }
 
+function pluginIdentity(plugin: unknown): string | undefined {
+  if (typeof plugin === "string") return plugin
+  if (plugin && typeof plugin === "object" && "package" in plugin && typeof plugin.package === "string") {
+    return plugin.package
+  }
+  return undefined
+}
+
+function legacyPluginEntries(config: OpenCodeConfig): NonNullable<OpenCodeConfig["plugins"]> {
+  const legacy = (config as OpenCodeConfig & { plugin?: unknown }).plugin
+  if (!Array.isArray(legacy)) return []
+  return legacy.flatMap((plugin): NonNullable<OpenCodeConfig["plugins"]> => {
+    if (typeof plugin === "string") return [plugin]
+    if (Array.isArray(plugin) && typeof plugin[0] === "string") {
+      const options = plugin[1]
+      return [
+        {
+          package: plugin[0],
+          ...(options && typeof options === "object" && !Array.isArray(options)
+            ? { options: options as Record<string, unknown> }
+            : {}),
+        },
+      ]
+    }
+    return []
+  })
+}
+
 function mergePluginConfig(targetDir: string, plugins: string[]): PluginConfigSync {
   const configPath = resolveConfigPath(targetDir)
   const existingConfig = readConfig(configPath)
-  const existingPlugin = Array.isArray(existingConfig.plugin) ? existingConfig.plugin : []
-  const existingPaths = new Set(existingPlugin.filter((plugin): plugin is string => typeof plugin === "string"))
+  const existingPlugins = [
+    ...(Array.isArray(existingConfig.plugins) ? existingConfig.plugins : []),
+    ...legacyPluginEntries(existingConfig),
+  ]
+  const discovered = new Set(plugins.map((plugin) => path.resolve(plugin)))
+  const normalizedPlugins = existingPlugins.map((plugin) => normalizePluginEntry(plugin, discovered))
+  const existingPaths = new Set(
+    normalizedPlugins.flatMap((plugin) => {
+      const identity = pluginIdentity(plugin)
+      return identity ? [identity] : []
+    }),
+  )
   const newPlugins = plugins.filter((plugin) => !existingPaths.has(plugin))
 
   return {
     configPath,
     plugins,
     newPlugins,
-    mergedPlugin: [...existingPlugin, ...newPlugins],
+    mergedPlugins: [...normalizedPlugins, ...newPlugins],
     existingPaths,
   }
 }
 
+function normalizePluginEntry(plugin: PluginConfig, discovered: Set<string>) {
+  if (typeof plugin !== "string") return plugin
+  const resolved = path.resolve(plugin)
+  if (discovered.has(resolved)) return resolved
+  if (path.basename(resolved) === "index.ts" || path.basename(resolved) === "index.js") {
+    const directory = path.dirname(resolved)
+    if (discovered.has(directory)) return directory
+  }
+  return plugin
+}
+
 function writePluginConfig(sync: PluginConfigSync): void {
-  const existingConfig = readConfig(sync.configPath)
+  const existingConfig = readConfig(sync.configPath) as OpenCodeConfig & { plugin?: unknown }
+  const { plugin: _legacy, ...rest } = existingConfig
   const config: OpenCodeConfig = {
-    ...existingConfig,
-    plugin: sync.mergedPlugin,
+    ...rest,
+    plugins: sync.mergedPlugins,
   }
 
   if (!config.$schema) {
@@ -335,7 +378,7 @@ function printPluginConfigSync(sync: PluginConfigSync, dryRun: boolean): void {
 
   if (dryRun) {
     console.log(`\nWould write to: ${sync.configPath}`)
-    console.log("Resulting plugin array:", JSON.stringify(sync.mergedPlugin, null, 2))
+    console.log("Resulting plugins array:", JSON.stringify(sync.mergedPlugins, null, 2))
   }
 }
 
@@ -509,7 +552,7 @@ program
 
 program
   .command("setup")
-  .description("Inject plugins/*/index.{js,ts} paths into opencode.json[c] plugin array")
+  .description("Inject plugin directories into opencode.json[c] plugins array")
   .option("-g, --global", "Write to global config (~/.config/opencode/)")
   .option("-t, --target <path>", "Custom target directory (for testing)")
   .option("-d, --dry-run", "Preview changes without writing")
@@ -526,7 +569,7 @@ program
     const plugins = discoverPlugins(pluginsDir)
 
     if (plugins.length === 0) {
-      console.log("No plugins found in plugins/*/index.{js,ts}")
+      console.log("No plugins found in plugins/*/index.{js,ts} directories")
       return
     }
 

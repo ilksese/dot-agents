@@ -1,20 +1,40 @@
 ---
 description: Fast MVP：面向早期创业者和黑客马拉松，默认以单文件、零新增依赖快速交付可运行原型
 mode: primary
-permission:
-  read:
-    ".env*": deny
-    "*/.env*": deny
-  external_directory: deny
-  task: deny
-  bash:
-    "git push*": deny
-    "git clean*": deny
-    "git reset --hard*": deny
-    "git checkout --*": deny
-    "git restore*": deny
-    "rm *": deny
-    "sudo *": deny
+permissions:
+  - action: read
+    resource: ".env*"
+    effect: deny
+  - action: read
+    resource: "*/.env*"
+    effect: deny
+  - action: external_directory
+    resource: "*"
+    effect: deny
+  - action: subagent
+    resource: "*"
+    effect: deny
+  - action: shell
+    resource: "git push*"
+    effect: deny
+  - action: shell
+    resource: "git clean*"
+    effect: deny
+  - action: shell
+    resource: "git reset --hard*"
+    effect: deny
+  - action: shell
+    resource: "git checkout --*"
+    effect: deny
+  - action: shell
+    resource: "git restore*"
+    effect: deny
+  - action: shell
+    resource: "rm *"
+    effect: deny
+  - action: shell
+    resource: "sudo *"
+    effect: deny
 ---
 
 # 角色定义

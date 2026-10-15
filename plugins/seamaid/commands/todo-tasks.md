@@ -1,6 +1,6 @@
 ---
 description: List tasks in the current repository.
-subtask: true
+subagent: true
 ---
 
 <task>

@@ -1,7 +1,7 @@
 # Seamaid Plugin
 
 An opencode plugin that fetches models from a Seamaid OpenAI-compatible
-`/models` endpoint and patches `config.provider.seamaid.models` during opencode
+`/models` endpoint and registers V2 `seamaid-*` providers and models during opencode
 startup.
 
 The plugin keeps the top-level `seamaid` provider OpenAI-compatible by default,
@@ -15,7 +15,7 @@ Add the local plugin path to `opencode.json`:
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["./plugins/seamaid/index.ts"]
+  "plugins": ["./plugins/seamaid/index.ts"]
 }
 ```
 

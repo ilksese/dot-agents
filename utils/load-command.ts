@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { basename, extname, join } from "node:path"
 import type { CommandConfig } from "@opencode/types"
 import { parseMarkdownFrontmatter } from "./load-markdown.js"
+import { joinModel } from "./v2.js"
 
 export type LoadedCommand = CommandConfig & Record<string, unknown>
 export type LoadedCommands = Record<string, LoadedCommand>
@@ -46,8 +47,14 @@ export function loadCommand({
     const filePath = join(commandsDir, file)
     const { attributes, body } = parseMarkdownFrontmatter(readFileSync(filePath, "utf-8"), filePath)
     const name = commandKeyFromFileName(file)
+    const model = joinModel(attributes.model, attributes.variant)
+    const subagent =
+      typeof attributes.subagent === "boolean" ? attributes.subagent : attributes.subtask === true ? true : undefined
     commands[name] = {
-      ...attributes,
+      ...(typeof attributes.description === "string" ? { description: attributes.description } : {}),
+      ...(typeof attributes.agent === "string" ? { agent: attributes.agent } : {}),
+      ...(model ? { model } : {}),
+      ...(subagent !== undefined ? { subagent } : {}),
       template: renderCommandTemplate(body, variables),
     }
   }

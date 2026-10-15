@@ -17,7 +17,7 @@ All script testing must stay within the project path. Always use `--target test/
 - `scripts/index.ts` — `init` command, copies 4 dirs to target, excludes `.DS_Store`, overwrites existing files
 - `agents/` — agent definitions (seamaid-code.md)
 - `commands/` — command definitions (create-pr.md)
-- `plugins/` — opencode plugins (seamaid/)
+- `plugins/` — OpenCode V2 plugins (seamaid/, kumo/). V1 plugin hooks are not supported.
 - `skills/` — skill definitions (auto-cleanup-commit/, explain-code/, use-proxy/)
 
 ## Files to never commit

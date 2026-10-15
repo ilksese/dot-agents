@@ -1,59 +1,23 @@
-/** Generated from https://opencode.ai/config.json. */
+/** OpenCode V2 config types. Catalog model fields below describe models.dev, not the V1 config object. */
 
-export type LogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR"
-export type PermissionAction = "ask" | "allow" | "deny"
-export type PermissionRule = PermissionAction | Record<string, PermissionAction>
-export type PermissionConfig =
-  | PermissionAction
-  | ({
-      read?: PermissionRule
-      edit?: PermissionRule
-      glob?: PermissionRule
-      grep?: PermissionRule
-      list?: PermissionRule
-      bash?: PermissionRule
-      task?: PermissionRule
-      external_directory?: PermissionRule
-      todowrite?: PermissionAction
-      question?: PermissionAction
-      webfetch?: PermissionAction
-      websearch?: PermissionAction
-      lsp?: PermissionRule
-      doom_loop?: PermissionAction
-      skill?: PermissionRule
-    } & Record<string, PermissionRule | undefined>)
+export type PermissionEffect = "ask" | "allow" | "deny"
 
-export type ReferenceConfig = string | GitReferenceConfig | LocalReferenceConfig
-
-export interface GitReferenceConfig {
-  repository: string
-  branch?: string
-  description?: string
-  hidden?: boolean
-}
-
-export interface LocalReferenceConfig {
-  path: string
-  description?: string
-  hidden?: boolean
+export interface PermissionRule {
+  action: string
+  resource: string
+  effect: PermissionEffect
 }
 
 export interface AgentConfig {
   model?: string
-  variant?: string
-  temperature?: number
-  top_p?: number
-  prompt?: string
-  tools?: Record<string, boolean>
-  disable?: boolean
+  system?: string
   description?: string
   mode?: "subagent" | "primary" | "all"
   hidden?: boolean
-  options?: Record<string, unknown>
-  color?: `#${string}` | "primary" | "secondary" | "accent" | "success" | "warning" | "error" | "info"
+  color?: string
   steps?: number
-  maxSteps?: number
-  permission?: PermissionConfig
+  disabled?: boolean
+  permissions?: PermissionRule[]
 }
 
 export interface CommandConfig {
@@ -61,19 +25,42 @@ export interface CommandConfig {
   description?: string
   agent?: string
   model?: string
-  variant?: string
-  subtask?: boolean
+  subagent?: boolean
 }
 
-export interface ProviderOptions {
-  apiKey?: string
-  baseURL?: string
-  enterpriseUrl?: string
-  setCacheKey?: boolean
-  timeout?: number | false
-  headerTimeout?: number | false
-  chunkTimeout?: number
-  [key: string]: unknown
+export type PluginConfig = string | { package: string; options?: Record<string, unknown> }
+
+export interface OpenCodeConfig {
+  $schema?: string
+  shell?: string
+  model?: string
+  default_agent?: string
+  update?: "disable" | "notify" | "auto"
+  share?: "manual" | "auto" | "disabled"
+  username?: string
+  permissions?: PermissionRule[]
+  agents?: Record<string, AgentConfig>
+  snapshots?: boolean
+  watcher?: { ignore?: string[] }
+  lsp?: boolean | Record<string, unknown>
+  formatter?: boolean | Record<string, unknown>
+  mcp?: { timeout?: Record<string, number>; servers?: Record<string, unknown> }
+  compaction?: { auto?: boolean; keep?: { tokens?: number }; buffer?: number }
+  skills?: string[]
+  commands?: Record<string, CommandConfig>
+  instructions?: string[]
+  references?: Record<string, unknown>
+  plugins?: PluginConfig[]
+  providers?: Record<string, unknown>
+  experimental?: {
+    portable_shell_scanner?: boolean
+    subagent_depth?: number
+    policies?: Array<{
+      action: "provider.use" | "tool.use" | "integration.use"
+      resource: string
+      effect: "allow" | "deny"
+    }>
+  }
 }
 
 export type Modality = "text" | "audio" | "image" | "video" | "pdf"
@@ -133,151 +120,4 @@ export interface ModelConfig {
   options?: Record<string, unknown>
   headers?: Record<string, string>
   variants?: Record<string, ModelVariantConfig>
-}
-
-export interface ProviderConfig {
-  api?: string
-  name?: string
-  env?: string[]
-  id?: string
-  npm?: string
-  whitelist?: string[]
-  blacklist?: string[]
-  options?: ProviderOptions
-  models?: Record<string, ModelConfig>
-}
-
-export interface McpLocalConfig {
-  type: "local"
-  command: string[]
-  cwd?: string
-  environment?: Record<string, string>
-  enabled?: boolean
-  timeout?: number
-}
-
-export interface McpOAuthConfig {
-  clientId?: string
-  clientSecret?: string
-  scope?: string
-  callbackPort?: number
-  redirectUri?: string
-}
-
-export interface McpRemoteConfig {
-  type: "remote"
-  url: string
-  enabled?: boolean
-  headers?: Record<string, string>
-  oauth?: McpOAuthConfig | false
-  timeout?: number
-}
-
-export type McpConfig = McpLocalConfig | McpRemoteConfig | { enabled: boolean }
-
-export interface ServerConfig {
-  port?: number
-  hostname?: string
-  mdns?: boolean
-  mdnsDomain?: string
-  cors?: string[]
-}
-
-export interface FormatterConfig {
-  disabled?: boolean
-  command?: string[]
-  environment?: Record<string, string>
-  extensions?: string[]
-}
-
-export type FormatterConfigValue = boolean | Record<string, FormatterConfig>
-export type LspConfigValue =
-  | boolean
-  | {
-      [name: string]:
-        | { disabled: true }
-        | {
-            command: string[]
-            extensions?: string[]
-            disabled?: boolean
-            env?: Record<string, string>
-            initialization?: Record<string, unknown>
-          }
-    }
-
-export interface ToolOutputConfig {
-  max_lines?: number
-  max_bytes?: number
-}
-
-export interface CompactionConfig {
-  auto?: boolean
-  prune?: boolean
-  tail_turns?: number
-  preserve_recent_tokens?: number
-  reserved?: number
-}
-
-export interface ExperimentalPolicy {
-  action: "provider.use"
-  effect: "allow" | "deny"
-  resource: string
-}
-
-export interface ExperimentalConfig {
-  disable_paste_summary?: boolean
-  batch_tool?: boolean
-  openTelemetry?: boolean
-  primary_tools?: string[]
-  continue_loop_on_deny?: boolean
-  mcp_timeout?: number
-  policies?: ExperimentalPolicy[]
-}
-
-export interface AttachmentConfig {
-  image?: {
-    auto_resize?: boolean
-    max_width?: number
-    max_height?: number
-    max_base64_bytes?: number
-  }
-}
-
-export interface OpenCodeConfig {
-  $schema?: string
-  shell?: string
-  logLevel?: LogLevel
-  server?: ServerConfig
-  command?: Record<string, CommandConfig>
-  skills?: { paths?: string[]; urls?: string[] }
-  references?: Record<string, ReferenceConfig>
-  reference?: Record<string, ReferenceConfig>
-  watcher?: { ignore?: string[] }
-  snapshot?: boolean
-  plugin?: Array<string | [string, Record<string, unknown>]>
-  share?: "manual" | "auto" | "disabled"
-  autoshare?: boolean
-  autoupdate?: boolean | "notify"
-  disabled_providers?: string[]
-  enabled_providers?: string[]
-  model?: string
-  small_model?: string
-  default_agent?: string
-  subagent_depth?: number
-  username?: string
-  mode?: Record<string, AgentConfig>
-  agent?: Record<string, AgentConfig>
-  provider?: Record<string, ProviderConfig>
-  mcp?: Record<string, McpConfig>
-  formatter?: FormatterConfigValue
-  lsp?: LspConfigValue
-  instructions?: string[]
-  layout?: "auto" | "stretch"
-  permission?: PermissionConfig
-  tools?: Record<string, boolean>
-  attachment?: AttachmentConfig
-  enterprise?: { url?: string }
-  tool_output?: ToolOutputConfig
-  compaction?: CompactionConfig
-  experimental?: ExperimentalConfig
 }

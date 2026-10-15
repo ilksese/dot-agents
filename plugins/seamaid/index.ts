@@ -1,9 +1,11 @@
 import { homedir } from "os"
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs"
 import { basename, join } from "path"
-import type { ModelConfig, OpenCodeConfig, ProviderConfig } from "@opencode/types"
-import { createSeamaidCommands } from "./commands.js"
+import type { ModelConfig } from "@opencode/types"
+import { loadSeamaidCommands } from "./commands.js"
 import { fetchModelContext, type ModelContext } from "./modal_context.js"
+import { registerLoadedCommands, type CommandHost } from "../../utils/register-commands.js"
+import { aisdkPackage } from "../../utils/v2.js"
 
 export type OpenAIModelsResponse = {
   data?: Array<{
@@ -286,7 +288,7 @@ export async function fetchSeamaidModels(env: Env, fetchImpl: typeof fetch): Pro
     throw new Error(`Seamaid models request failed: ${response.status} ${response.statusText}`)
   }
 
-  return markSeamaidModels(parseModels((await response.json()) as OpenAIModelsResponse))
+  return markSeamaidModels(parseModels((await response.json()) as OpenAIModelsResponse, env))
 }
 
 function resolveOption<T>(
@@ -306,36 +308,157 @@ function providerBaseURL(env: Env, basePath: string): string | undefined {
   return `${baseURLRoot(env.SEAMAID_BASE_URL)}/${basePath}`
 }
 
-export function patchSeamaidProvider(cfg: OpenCodeConfig, models: ProviderModels, env: Env = process.env): void {
-  cfg.provider ??= {}
+export interface SeamaidModel {
+  id: string
+  modelID: string
+  providerID: string
+  name: string
+  package?: string
+  capabilities: { tools: boolean; input: string[]; output: string[] }
+  variants: Array<{ id: string; settings: Record<string, unknown> }>
+  cost: Array<{
+    input: number
+    output: number
+    cache: { read: number; write: number }
+    tier?: { type: "context"; size: number }
+  }>
+  limit: { context: number; input?: number; output: number }
+  compatibility: { supportsPromptCacheKey: true }
+  status: "active"
+  enabled: true
+  time: { released: 0 }
+}
 
-  for (const [providerID, provider] of Object.entries(PROVIDERS)) {
-    const existing = cfg.provider[providerID] ?? {}
-    const existingOptions = existing.options ?? {}
-    const providerModels = models[providerID]
+export interface SeamaidProvider {
+  id: string
+  name: string
+  activation: "enabled"
+  package: string
+  settings: { baseURL: string; apiKey: string; [key: string]: unknown }
+  headers?: Record<string, string>
+  models: SeamaidModel[]
+}
 
-    cfg.provider[providerID] = {
-      ...existing,
-      npm: existing.npm ?? provider.npm,
-      name: existing.name ?? provider.name,
-      options: {
-        ...existingOptions,
+export interface ExistingSeamaidProvider {
+  name?: string
+  package?: string
+  settings?: { baseURL?: string; apiKey?: string; [key: string]: unknown }
+  headers?: Record<string, string>
+  models?: SeamaidModel[]
+}
+
+function toSeamaidModel(providerID: string, modelID: string, model: ModelConfig): SeamaidModel {
+  const modalities = model.modalities
+  const limit = model.limit
+  const cost = model.cost
+  const variants = model.variants
+    ? Object.entries(model.variants).map(([id, settings]) => ({ id, settings: { ...settings } }))
+    : []
+  return {
+    id: modelID,
+    modelID,
+    providerID,
+    name: model.name ?? modelID,
+    ...(model.provider?.npm ? { package: aisdkPackage(model.provider.npm) } : {}),
+    capabilities: {
+      tools: model.tool_call ?? true,
+      input: modalities?.input ?? ["text"],
+      output: modalities?.output ?? ["text"],
+    },
+    variants,
+    cost: toModelCost(cost),
+    limit: {
+      context: limit?.context ?? 200_000,
+      ...(limit?.input !== undefined ? { input: limit.input } : {}),
+      output: limit?.output ?? 32_000,
+    },
+    compatibility: { supportsPromptCacheKey: true },
+    status: "active",
+    enabled: true,
+    time: { released: 0 },
+  }
+}
+
+function finiteMoney(value: number | undefined): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined
+}
+
+// OpenCode Model.Cost requires cache.read and cache.write. Missing prices are zero, not omitted.
+function cachePrice(read: number | undefined, write: number | undefined) {
+  return {
+    read: finiteMoney(read) ?? 0,
+    write: finiteMoney(write) ?? 0,
+  }
+}
+
+function toModelCost(cost: ModelConfig["cost"]): SeamaidModel["cost"] {
+  if (!cost) return []
+
+  const tiers = [
+    costTier(cost.input, cost.output, cost.cache_read, cost.cache_write),
+    cost.context_over_200k
+      ? costTier(
+          cost.context_over_200k.input,
+          cost.context_over_200k.output,
+          cost.context_over_200k.cache_read,
+          cost.context_over_200k.cache_write,
+          { type: "context", size: 200_000 },
+        )
+      : undefined,
+  ]
+
+  return tiers.filter((tier) => tier !== undefined)
+}
+
+function costTier(
+  input: number | undefined,
+  output: number | undefined,
+  read: number | undefined,
+  write: number | undefined,
+  tier?: { type: "context"; size: number },
+) {
+  const pricedInput = finiteMoney(input)
+  const pricedOutput = finiteMoney(output)
+  if (pricedInput === undefined || pricedOutput === undefined) return undefined
+  return {
+    ...(tier ? { tier } : {}),
+    input: pricedInput,
+    output: pricedOutput,
+    cache: cachePrice(read, write),
+  }
+}
+
+export function buildSeamaidProviders(
+  existing: Record<string, ExistingSeamaidProvider> = {},
+  models: ProviderModels = {},
+  env: Env = process.env,
+): SeamaidProvider[] {
+  return Object.entries(PROVIDERS).map(([providerID, provider]) => {
+    const current = existing[providerID] ?? {}
+    const currentSettings = current.settings ?? {}
+    const catalog = models[providerID]
+    return {
+      id: providerID,
+      name: current.name ?? provider.name,
+      activation: "enabled",
+      package: current.package || aisdkPackage(provider.npm),
+      settings: {
+        ...currentSettings,
         baseURL: resolveOption(
-          existingOptions.baseURL as string | undefined,
+          currentSettings.baseURL,
           providerBaseURL(env, provider.basePath),
           `{env:SEAMAID_BASE_URL}/${provider.basePath}`,
           "{env:SEAMAID_BASE_URL}",
         ),
-        apiKey: resolveOption(
-          existingOptions.apiKey as string | undefined,
-          env.SEAMAID_API_KEY,
-          "{env:SEAMAID_API_KEY}",
-        ),
-        setCacheKey: true,
+        apiKey: resolveOption(currentSettings.apiKey, env.SEAMAID_API_KEY, "{env:SEAMAID_API_KEY}"),
       },
-      models: providerModels && Object.keys(providerModels).length > 0 ? providerModels : (existing.models ?? {}),
+      ...(current.headers ? { headers: current.headers } : {}),
+      models:
+        catalog && Object.keys(catalog).length > 0
+          ? Object.entries(catalog).map(([modelID, model]) => toSeamaidModel(providerID, modelID, model))
+          : (current.models ?? []),
     }
-  }
+  })
 }
 
 export async function fetchSeamaidModelsCached(env: Env, fetchImpl: typeof fetch): Promise<ProviderModels> {
@@ -356,50 +479,103 @@ export async function fetchModelContextCached(env: Env, fetchImpl: typeof fetch)
   return context
 }
 
-export default async function seamaidPlugin({ directory, $ }: { directory: string; $: Shell }) {
-  let models: ProviderModels = {}
+const SEAMAID_PROVIDER_IDS = new Set(Object.keys(PROVIDERS))
 
-  try {
-    models = await fetchSeamaidModelsCached(process.env, fetch)
-  } catch (error) {
-    console.warn("[seamaid] Failed to fetch models:", error)
-  }
-
-  if (hasModels(models)) {
-    try {
-      models = applyModelContext(models, await fetchModelContextCached(process.env, fetch))
-    } catch (error) {
-      console.warn("[seamaid] Failed to fetch model context:", error)
-    }
-  }
-
-  let projectName = basename(directory)
-  try {
-    const projectRoot = (await $`git -C ${directory} rev-parse --show-toplevel`.text()).trim()
-    if (projectRoot) projectName = basename(projectRoot)
-  } catch {
-    // Use the working directory name when the current directory is not a Git repository.
-  }
-
-  return {
-    config(cfg: OpenCodeConfig) {
-      patchSeamaidProvider(cfg, models, process.env)
-      createSeamaidCommands(cfg, projectName)
-    },
-    "command.execute.before": async (input, output) => {
-      if (input.command !== "seamaid:ego-test-ui") return
-      const args = input.arguments ?? ""
-      const figma = args.match(/https?:\/\/[^\s]*figma[^\s]*/i)?.[0]
-      const local = args.match(/https?:\/\/(?:localhost|127\.0\.0\.1)[^\s]*/i)?.[0]
-      for (const part of output.parts) {
-        if (part.type !== "text") continue
-        let text = part.text
-        text = text.replace(/<figma-url>\s*<\/figma-url>/, figma ? `<figma-url>\n${figma}\n</figma-url>` : "")
-        text = text.replace(/<browser-url>\s*<\/browser-url>/, local ? `<browser-url>\n${local}\n</browser-url>` : "")
-        part.text = text
-      }
-    },
-  }
+interface ProviderDraft {
+  name: string
+  package: string
+  settings: Record<string, unknown>
+  headers: Record<string, string>
 }
 
-type Shell = (strings: TemplateStringsArray, ...values: unknown[]) => { text(): Promise<string> }
+interface ProviderEditor {
+  get(providerID: string): { provider: ProviderDraft } | undefined
+  add(input: { info: ProviderDraft & { id: string; activation: "enabled" }; models: SeamaidModel[] }): void
+  update(providerID: string, update: (provider: ProviderDraft) => void): void
+  models: { set(providerID: string, models: SeamaidModel[]): void }
+}
+
+interface ModelEditor {
+  list(providerID?: string): Array<{ providerID: string; id: string; compatibility?: Record<string, unknown> }>
+  update(
+    providerID: string,
+    modelID: string,
+    update: (model: { compatibility?: Record<string, unknown> }) => void,
+  ): void
+}
+
+export interface SeamaidContext extends CommandHost {
+  location: { directory: string; project: { directory: string } }
+  provider: { transform(callback: (editor: ProviderEditor) => void): Promise<unknown> }
+  model: { transform(callback: (editor: ModelEditor) => void): Promise<unknown> }
+}
+
+export default {
+  id: "seamaid",
+  async setup(ctx: SeamaidContext) {
+    let models: ProviderModels = {}
+
+    try {
+      models = await fetchSeamaidModelsCached(process.env, fetch)
+    } catch (error) {
+      console.warn("[seamaid] Failed to fetch models:", error)
+    }
+
+    if (hasModels(models)) {
+      try {
+        models = applyModelContext(models, await fetchModelContextCached(process.env, fetch))
+      } catch (error) {
+        console.warn("[seamaid] Failed to fetch model context:", error)
+      }
+    }
+
+    const projectName = basename(ctx.location.project.directory || ctx.location.directory)
+    await ctx.provider.transform((editor) => {
+      const existing = Object.fromEntries(
+        buildSeamaidProviders().map((provider) => {
+          const current = editor.get(provider.id)?.provider
+          return [
+            provider.id,
+            {
+              name: current?.name,
+              package: current?.package,
+              settings: current?.settings,
+              headers: current?.headers,
+            },
+          ]
+        }),
+      )
+      for (const provider of buildSeamaidProviders(existing, models, process.env)) {
+        const info = {
+          id: provider.id,
+          name: provider.name,
+          activation: provider.activation,
+          package: provider.package,
+          settings: provider.settings,
+          headers: provider.headers ?? {},
+        }
+        if (!editor.get(provider.id)) {
+          editor.add({ info, models: provider.models })
+          continue
+        }
+        editor.update(provider.id, (draft) => {
+          draft.name = provider.name
+          draft.package = provider.package
+          draft.settings = provider.settings
+          draft.headers = provider.headers ?? draft.headers
+        })
+        if (provider.models.length > 0) editor.models.set(provider.id, provider.models)
+      }
+    })
+    await ctx.model.transform((editor) => {
+      for (const providerID of SEAMAID_PROVIDER_IDS) {
+        for (const model of editor.list(providerID)) {
+          editor.update(model.providerID, model.id, (draft) => {
+            draft.compatibility = { ...draft.compatibility, supportsPromptCacheKey: true }
+          })
+        }
+      }
+    })
+    await registerLoadedCommands(ctx, loadSeamaidCommands(projectName))
+  },
+}

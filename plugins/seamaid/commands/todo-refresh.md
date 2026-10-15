@@ -1,6 +1,6 @@
 ---
 description: Refresh the todo session and GET_USER_ACTION.
-subtask: true
+subagent: true
 ---
 
 <task>
